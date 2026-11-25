@@ -48,7 +48,8 @@ run() {
     setup
     echo "View at http://localhost:$PORT/ (Ctrl+C to stop)"
     # The stream binds to the Pi's localhost only; SSH forwards it to this machine
-    ssh -t -L "$PORT:127.0.0.1:$PORT" "$PI_HOST" \
+    # LogLevel=ERROR hides "connect failed" noise from a still-open browser tab retrying after Ctrl+C
+    ssh -t -o LogLevel=ERROR -L "$PORT:127.0.0.1:$PORT" "$PI_HOST" \
         "cd $PI_DIR && LIBCAMERA_LOG_LEVELS=WARN .venv/bin/virtual-whiteboard 2> >(grep --line-buffered -vE '$LOG_NOISE' >&2)"
 }
 
