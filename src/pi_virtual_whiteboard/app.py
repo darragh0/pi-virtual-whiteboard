@@ -65,7 +65,7 @@ def main() -> None:
                 # Smoothed too: jitter near a threshold would otherwise flip the reading
                 world_landmarks = world_smoother.smooth(result.world_landmarks, captured)
                 shape = measure(world_landmarks)
-                gesture = gestures.update(classify(shape), captured)
+                gesture = gestures.update(classify(shape, drawing=gestures.current == Gesture.DRAW), captured)
 
             # The video stays clean for the whiteboard; the tracking's workings are shown only when debugging
             if args.debug:

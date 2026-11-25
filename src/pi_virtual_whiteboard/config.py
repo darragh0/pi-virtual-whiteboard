@@ -37,10 +37,14 @@ SMOOTHING_DERIVATIVE_CUTOFF_HZ: Final = 4.0  # Higher = notices a movement start
 # A finger is up when its tip is this many times further from the wrist than its middle joint is. Measured on a real
 # hand: 1.37 straight, 0.41-1.00 curled (including a fist facing the camera)
 EXTENDED_RATIO: Final = 1.15
-# Pinching: thumb and index tips closer than this many palm lengths (wrist to middle finger knuckle)...
-PINCH_RATIO: Final = 0.3
-# ...with the index tip this many times further from the wrist than its knuckle (rules out a fist's curled tip)
-PINCH_REACH_RATIO: Final = 1.2
+# Pinching (pen down): thumb and index tips closer than this many palm lengths (wrist to middle finger knuckle)...
+PINCH_RATIO: Final = 0.35
+# ...and the pen lifts only once they're further apart than this: a gap between the two, so a pinch that loosens
+# slightly mid-stroke doesn't break the line
+PINCH_RELEASE_RATIO: Final = 0.5
+# ...with the index tip this many times further from the wrist than its knuckle (rules out a fist, whose thumb rests
+# near the curled index tip). Synthetic hands: ~1.5 pinching, ~0.9 in a fist; check yours with --debug
+PINCH_REACH_RATIO: Final = 1.0
 # A new gesture takes over only once it has lasted this long, so in-between shapes and misread frames don't flash,
 # and losing the hand for a frame or two doesn't end a stroke
 GESTURE_HOLD_S: Final = 0.12

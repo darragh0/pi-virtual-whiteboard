@@ -1,7 +1,7 @@
 // The virtual whiteboard: the Pi's video, with what the hand draws on top
 
 import { Board } from "./board.js";
-import { Controls } from "./controls.js";
+import { COLOURS, Controls } from "./controls.js";
 import { Hud } from "./hud.js";
 import { streamFrames } from "./stream.js";
 
@@ -18,12 +18,28 @@ const hud = new Hud({ cursor: element("cursor"), toast: element("toast") });
 const controls = new Controls(board, hud);
 const gestureChips = document.querySelectorAll("#gestures [data-gesture]");
 
+// One swatch per colour, numbered like its key
+const swatches = COLOURS.map((colour, index) => {
+  const swatch = document.createElement("button");
+  swatch.type = "button";
+  swatch.title = `${colour.name} (${index + 1})`;
+  swatch.style.background = colour.value;
+  swatch.addEventListener("click", () => pickColour(index));
+  element("colours").append(swatch);
+  return swatch;
+});
+
+function pickColour(index) {
+  controls.colour = COLOURS[index];
+  swatches.forEach((swatch, other) => swatch.classList.toggle("active", other === index));
+}
+pickColour(0);
+
 function onFrame(hand) {
   boardElement.style.setProperty("--aspect", video.naturalWidth / video.naturalHeight);
   controls.update(hand, performance.now());
 
   for (const chip of gestureChips) chip.classList.toggle("active", chip.dataset.gesture === hand.gesture);
-  element("colour").style.background = controls.colour.value;
 }
 
 // The drawing as a PNG, on the board's background (the video isn't included)
@@ -51,10 +67,11 @@ function cycleView() {
 const KEYS = {
   z: () => hud.toast(board.undo() ? "Undo" : "Nothing to undo"),
   y: () => hud.toast(board.redo() ? "Redo" : "Nothing to redo"),
-  c: () => controls.clear(),
   s: save,
   v: cycleView,
 };
+
+COLOURS.forEach((_, index) => (KEYS[index + 1] = () => pickColour(index)));
 
 document.addEventListener("keydown", (event) => {
   if (event.ctrlKey || event.metaKey || event.altKey) return; // Leave the browser's own shortcuts alone

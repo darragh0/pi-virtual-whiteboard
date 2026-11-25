@@ -19,14 +19,13 @@
 
     <footer>
       <ul id="gestures">
-        <li data-gesture="draw"><b>☝️</b> Draw</li>
-        <li data-gesture="hover"><b>✌️</b> Move</li>
-        <li data-gesture="erase"><b>🖐️</b> Erase</li>
-        <li data-gesture="pinch"><b>🤏</b> Colour <i id="colour"></i></li>
-        <li data-gesture="fist"><b>✊</b> Hold to clear</li>
+        <li data-gesture="draw"><b>🤏</b> Pinch to draw</li>
+        <li data-gesture="erase"><b>🖐️</b> Open palm to erase</li>
+        <li data-gesture="none">Anything else moves</li>
       </ul>
+      <div id="colours"></div>
       <p id="keys">
-        <kbd>Z</kbd> undo <kbd>Y</kbd> redo <kbd>C</kbd> clear <kbd>S</kbd> save <kbd>V</kbd> view
+        <kbd>1</kbd>-<kbd>7</kbd> colour <kbd>Z</kbd> undo <kbd>Y</kbd> redo <kbd>S</kbd> save <kbd>V</kbd> view
         <span id="stats">connecting...</span>
       </p>
     </footer>

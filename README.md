@@ -20,7 +20,7 @@ From the laptop (the Pi is reached over SSH as `dar@rpi`; override with `PI_HOST
 ```sh
 scripts/pi.py run                       # sync + run on the Pi, view at http://localhost:8000/
 scripts/pi.py run --debug               # same, with model confidence scores on screen
-scripts/pi.py run --prefer sharp-motion  # less motion blur, but darker and grainier
+scripts/pi.py run --prefer sharp-motion # less motion blur, but darker and grainier
 scripts/pi.py run --hand right          # only track your right hand (or left)
 ```
 
@@ -46,16 +46,14 @@ uv run pi-virtual-whiteboard --camera webcam   # view at http://localhost:8000/;
 
 ## Gestures
 
-| Gesture | Hand                          | Does                                                      |
-| ------- | ----------------------------- | --------------------------------------------------------- |
-| `draw`  | Index finger up               | Pen down                                                  |
-| `hover` | Index and middle fingers up   | Move without drawing                                      |
-| `erase` | Open palm                     | Erase under the palm                                      |
-| `pinch` | Thumb and index tips together | Opens a colour wheel: move towards a colour, let go       |
-| `fist`  | All fingers curled            | Hold for a second to clear the board (undoable)           |
+| Gesture       | Does                                                      |
+| ------------- | --------------------------------------------------------- |
+| Pinch         | Draw, like holding a pen: thumb and index fingertips meet |
+| Open palm     | Erase under the palm                                      |
+| Anything else | Move without drawing                                      |
 
-Keys: <kbd>Z</kbd> undo, <kbd>Y</kbd> redo, <kbd>C</kbd> clear, <kbd>S</kbd> save the drawing as a PNG,
-<kbd>V</kbd> cycle the view behind the ink (dimmed video, video, board only).
+Keys: <kbd>1</kbd>-<kbd>7</kbd> colour (or click a swatch), <kbd>Z</kbd> undo, <kbd>Y</kbd> redo,
+<kbd>S</kbd> save the drawing as a PNG, <kbd>V</kbd> cycle the view behind the ink (dimmed video, video, board only).
 
 Gestures are read from the model's 3D landmarks, so they work whichever way the hand faces; the thresholds are in
 `config.py`. Run with `--debug` to see the hand's skeleton, the gesture being read and the measurements behind it.

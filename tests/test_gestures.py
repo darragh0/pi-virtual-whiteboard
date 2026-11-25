@@ -4,8 +4,8 @@ from typing import Final
 import numpy as np
 import pytest
 
-from pi_virtual_whiteboard.config import GESTURE_HOLD_S
-from pi_virtual_whiteboard.hands import Gesture, GestureFilter, HandLandmark, Points, classify, measure
+from pi_virtual_whiteboard.config import GESTURE_HOLD_S, PINCH_RATIO, PINCH_RELEASE_RATIO
+from pi_virtual_whiteboard.hands import Gesture, GestureFilter, HandLandmark, HandShape, Points, classify, measure
 
 _L = HandLandmark
 
@@ -56,25 +56,26 @@ def _posed(hand: Points, spin: float, tilt: float, palm: float) -> Points:
 
 
 HANDS: Final = {
-    Gesture.DRAW: _hand(True, False, False, False),
-    Gesture.HOVER: _hand(True, True, False, False),
-    Gesture.ERASE: _hand(True, True, True, True),
-    Gesture.FIST: _hand(False, False, False, False),
-    Gesture.PINCH: _hand(False, False, False, False, pinch=True),
-    Gesture.NONE: _hand(False, True, True, True),
+    "pinch": (_hand(False, False, False, False, pinch=True), Gesture.DRAW),
+    "open palm": (_hand(True, True, True, True), Gesture.ERASE),
+    "pointing": (_hand(True, False, False, False), Gesture.NONE),
+    "two fingers": (_hand(True, True, False, False), Gesture.NONE),
 }
 
 
-@pytest.mark.parametrize("gesture", HANDS)
+# A fist rests its thumb near the index tip, like a pinch: it must not draw
+_FIST: Final = _hand(False, False, False, False)
+
+
+@pytest.mark.parametrize("name", HANDS)
 @pytest.mark.parametrize("spin", [0, 45, 180])
 # 85 degrees: fingers pointing nearly straight at the camera, where on-screen landmarks would make every finger look
 # curled (why gestures read the 3D landmarks)
 @pytest.mark.parametrize("tilt", [0, 60, 85])
 @pytest.mark.parametrize("palm", [0.07, 0.1])  # A small and a large hand, in metres
-def test_classify_reads_each_gesture_however_the_hand_is_held(
-    gesture: Gesture, spin: float, tilt: float, palm: float
-) -> None:
-    assert classify(measure(_posed(HANDS[gesture], spin, tilt, palm))) == gesture
+def test_classify_reads_each_gesture_however_the_hand_is_held(name: str, spin: float, tilt: float, palm: float) -> None:
+    hand, gesture = HANDS[name]
+    assert classify(measure(_posed(hand, spin, tilt, palm)), drawing=False) == gesture
 
 
 def test_filter_switches_once_a_gesture_has_held() -> None:
@@ -104,3 +105,15 @@ def test_filter_keeps_the_pen_down_through_a_brief_dropout() -> None:
     # The app reads a lost hand as NONE: for a moment, that's the same as any other misread
     assert gestures.update(Gesture.NONE, 1.0 + GESTURE_HOLD_S / 2) == Gesture.DRAW
     assert gestures.update(Gesture.DRAW, 1.0 + GESTURE_HOLD_S) == Gesture.DRAW
+
+
+@pytest.mark.parametrize("spin", [0, 45, 180])
+@pytest.mark.parametrize("tilt", [0, 60, 85])
+def test_classify_does_not_read_a_fist_as_a_pinch(spin: float, tilt: float) -> None:
+    assert classify(measure(_posed(_FIST, spin, tilt, 0.08)), drawing=False) == Gesture.NONE
+
+
+def test_a_loosening_pinch_keeps_the_pen_down() -> None:
+    loose = HandShape(fingers=(0.8, 0.8, 0.8, 0.8), pinch=(PINCH_RATIO + PINCH_RELEASE_RATIO) / 2, reach=1.5)
+    assert classify(loose, drawing=False) == Gesture.NONE  # Too loose to start drawing...
+    assert classify(loose, drawing=True) == Gesture.DRAW  # ...but not to stop

@@ -2,7 +2,7 @@
 //
 // Strokes are kept as data, in 0..1 of the board's width and height (like the hand's landmarks), and drawn onto a
 // canvas from it: the drawing stays sharp at any window size, and undo is just dropping the last action and
-// redrawing. Erasing and clearing are actions in the same list, so they undo like any stroke
+// redrawing. Erasing is a stroke too, so it undoes like any other
 
 const MIN_STEP = 0.002; // Points closer than this to the last are skipped: at rest, the fingertip only jitters
 
@@ -11,7 +11,7 @@ const midpoint = ([ax, ay], [bx, by]) => [(ax + bx) / 2, (ay + by) / 2];
 export class Board {
   #canvas;
   #context;
-  #actions = []; // Strokes ({tool: "pen" | "eraser", colour, width, points}) and clears ({tool: "clear"})
+  #actions = []; // Strokes: {tool: "pen" | "eraser", colour, width, points}
   #undone = [];
   #live = null; // The stroke being drawn
 
@@ -23,12 +23,6 @@ export class Board {
 
   get drawing() {
     return this.#live !== null;
-  }
-
-  // Whether there's anything to clear: no strokes since the last clear
-  get empty() {
-    const lastClear = this.#actions.findLastIndex((action) => action.tool === "clear");
-    return lastClear === this.#actions.length - 1;
   }
 
   // Start a stroke. width is in board heights
@@ -65,15 +59,6 @@ export class Board {
     else this.#drawTail(stroke);
   }
 
-  // Clear the board (undoable). Returns whether there was anything to clear
-  clear() {
-    this.end();
-    if (this.empty) return false;
-    this.#do({ tool: "clear" });
-    this.#redraw();
-    return true;
-  }
-
   undo() {
     this.end();
     if (this.#actions.length === 0) return false;
@@ -106,10 +91,6 @@ export class Board {
   #redraw() {
     this.#context.clearRect(0, 0, this.#canvas.width, this.#canvas.height);
     for (const action of this.#actions) {
-      if (action.tool === "clear") {
-        this.#context.clearRect(0, 0, this.#canvas.width, this.#canvas.height);
-        continue;
-      }
       action.points.forEach((_, index) => this.#drawPiece(action, index));
       this.#drawTail(action);
     }

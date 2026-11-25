@@ -10,18 +10,21 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Final, final
 
-from pi_virtual_whiteboard.config import EXTENDED_RATIO, GESTURE_HOLD_S, PINCH_RATIO, PINCH_REACH_RATIO
+from pi_virtual_whiteboard.config import (
+    EXTENDED_RATIO,
+    GESTURE_HOLD_S,
+    PINCH_RATIO,
+    PINCH_REACH_RATIO,
+    PINCH_RELEASE_RATIO,
+)
 from pi_virtual_whiteboard.hands.landmarks import HandLandmark
 from pi_virtual_whiteboard.hands.roi import Points
 
 
 class Gesture(StrEnum):
-    DRAW = "draw"  # Index finger up: the pen is down
-    HOVER = "hover"  # Index and middle fingers up: move without drawing
+    DRAW = "draw"  # Thumb and index fingertips pinched together, like holding a pen: the pen is down
     ERASE = "erase"  # Open palm: a wide eraser
-    PINCH = "pinch"  # Thumb and index fingertips together
-    FIST = "fist"  # All fingers curled (a thumbs up counts too: see classify)
-    NONE = "none"  # Anything else, or no hand
+    NONE = "none"  # Anything else, or no hand: the cursor just moves
 
 
 _L = HandLandmark
@@ -33,14 +36,6 @@ _FINGERS: Final = (
     (_L.RING_FINGER_PIP, _L.RING_FINGER_TIP),
     (_L.PINKY_PIP, _L.PINKY_TIP),
 )
-
-# Which of index, middle, ring and pinky are up, for each gesture
-_SHAPES: Final[dict[tuple[bool, ...], Gesture]] = {
-    (True, False, False, False): Gesture.DRAW,
-    (True, True, False, False): Gesture.HOVER,
-    (True, True, True, True): Gesture.ERASE,
-    (False, False, False, False): Gesture.FIST,
-}
 
 
 @final
@@ -76,16 +71,18 @@ def measure(world_landmarks: Points) -> HandShape:
     )
 
 
-def classify(shape: HandShape) -> Gesture:
-    """Read the gesture a hand is making in one frame."""
+def classify(shape: HandShape, *, drawing: bool) -> Gesture:
+    """Read the gesture a hand is making in one frame. `drawing`: whether the pen is down at the moment."""
+    # Letting go takes the tips further apart than pinching did, so a pinch loosening mid-stroke doesn't lift the pen.
     # In a fist the thumb also rests near the index tip, but there the tip is curled back to the knuckles
-    if shape.pinch < PINCH_RATIO and shape.reach > PINCH_REACH_RATIO:
-        return Gesture.PINCH
+    pinch_limit = PINCH_RELEASE_RATIO if drawing else PINCH_RATIO
+    if shape.pinch < pinch_limit and shape.reach > PINCH_REACH_RATIO:
+        return Gesture.DRAW
 
-    # The thumb isn't checked, so a thumbs up reads as a fist: measured on a real hand, the thumb's distance from the
-    # fingers was the same in both (~0.5 palm lengths), so no threshold could tell them apart
-    fingers_up = tuple(ratio > EXTENDED_RATIO for ratio in shape.fingers)
-    return _SHAPES.get(fingers_up, Gesture.NONE)
+    if all(ratio > EXTENDED_RATIO for ratio in shape.fingers):
+        return Gesture.ERASE
+
+    return Gesture.NONE
 
 
 @final
@@ -100,6 +97,10 @@ class GestureFilter:
         self._current = Gesture.NONE
         self._candidate = Gesture.NONE  # Seen since `_since`, but not held long enough yet
         self._since = 0.0
+
+    @property
+    def current(self) -> Gesture:
+        return self._current
 
     def update(self, gesture: Gesture, timestamp: float) -> Gesture:
         """Return the gesture to act on, given the one read from a frame captured at `timestamp` seconds."""
