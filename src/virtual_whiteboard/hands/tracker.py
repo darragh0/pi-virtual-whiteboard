@@ -14,6 +14,7 @@ import numpy as np
 from cv2.typing import MatLike
 
 from virtual_whiteboard.config import LANDMARK_MODEL, MIN_HAND_PRESENCE, MIN_PALM_SCORE, PALM_MODEL
+from virtual_whiteboard.hands.landmarks import HandLandmark
 from virtual_whiteboard.hands.model import Model
 from virtual_whiteboard.hands.roi import Points, Roi, angle_towards, rotation
 
@@ -25,11 +26,17 @@ PALM_ROI_SCALE: Final = 2.6
 PALM_ROI_SHIFT: Final = -0.5
 LANDMARK_ROI_SCALE: Final = 2.0
 LANDMARK_ROI_SHIFT: Final = -0.1
-ROI_LANDMARKS: Final = [0, 1, 2, 3, 5, 6, 9, 10, 13, 14, 17, 18]  # Wrist + finger bases: stable as fingers move
+# Wrist + finger bases: they barely move as the fingers bend, so the crop stays steady
+ROI_LANDMARKS: Final = [
+    HandLandmark.WRIST,
+    *(HandLandmark.THUMB_CMC, HandLandmark.THUMB_MCP, HandLandmark.THUMB_IP),
+    *(HandLandmark.INDEX_FINGER_MCP, HandLandmark.INDEX_FINGER_PIP),
+    *(HandLandmark.MIDDLE_FINGER_MCP, HandLandmark.MIDDLE_FINGER_PIP),
+    *(HandLandmark.RING_FINGER_MCP, HandLandmark.RING_FINGER_PIP),
+    *(HandLandmark.PINKY_MCP, HandLandmark.PINKY_PIP),
+]
 
-WRIST: Final = 0
-MIDDLE_FINGER_BASE: Final = 9
-
+# The palm detector's own keypoints (7, separate from the 21 hand landmarks)
 PALM_KEYPOINT_WRIST: Final = 0
 PALM_KEYPOINT_MIDDLE_FINGER_BASE: Final = 2
 
@@ -60,7 +67,7 @@ def _sigmoid(x: float) -> float:
 
 
 def _roi_from_landmarks(landmarks: Points) -> Roi:
-    angle = angle_towards(landmarks[WRIST], landmarks[MIDDLE_FINGER_BASE])
+    angle = angle_towards(landmarks[HandLandmark.WRIST], landmarks[HandLandmark.MIDDLE_FINGER_MCP])
     hand_rotation = rotation(angle)
 
     # Bounding box in the hand's own (rotated) frame
