@@ -5,8 +5,10 @@ Hand tracking on a Raspberry Pi 4 camera, viewed from the laptop.
 ## Run
 
 ```sh
-scripts/pi.sh run     # sync + run on the Pi, view at http://localhost:8000/
-scripts/pi.sh watch   # keep the Pi's copy in sync while editing
+scripts/pi.py run           # sync + run on the Pi, view at http://localhost:8000/
+scripts/pi.py run --debug   # same, with model confidence scores on screen
+scripts/pi.py run --prefer speed  # grainier image, ~5 ms less lag
+scripts/pi.py watch         # keep the Pi's copy in sync while editing
 ```
 
 ## How it works

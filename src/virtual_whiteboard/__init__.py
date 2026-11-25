@@ -11,7 +11,7 @@ from virtual_whiteboard.smoothing import LandmarkSmoother
 from virtual_whiteboard.stream import MjpegStream
 from virtual_whiteboard.tracking import HandTracker, draw_hand
 
-# Localhost only: scripts/pi.sh forwards the port to the laptop over SSH
+# Localhost only: scripts/pi.py forwards the port to the laptop over SSH
 STREAM_HOST: Final = "127.0.0.1"
 STREAM_PORT: Final = 8000
 
