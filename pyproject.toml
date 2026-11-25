@@ -1,11 +1,9 @@
 [project]
 name = "virtual-whiteboard"
 version = "0.1.0"
-description = "Add your description here"
+description = "Virtual whiteboard driven by real-time hand tracking on a Raspberry Pi 4 5MP camera"
 readme = "README.md"
-authors = [
-  { name = "darragh0", email = "156817523+darragh0@users.noreply.github.com" },
-]
+authors = [{ name = "darragh0" }, { name = "jjola00" }]
 requires-python = ">=3.13,<3.14"
 dependencies = [
     "ai-edge-litert>=2.4.0",
