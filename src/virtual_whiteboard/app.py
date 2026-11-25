@@ -7,7 +7,7 @@ from cv2.typing import MatLike
 
 from virtual_whiteboard.camera import PREFERENCES, PiCamera, Preference
 from virtual_whiteboard.config import STREAM_HOST, STREAM_PORT
-from virtual_whiteboard.hands import HandTracker, TrackResult, draw_hand
+from virtual_whiteboard.hands import HandTracker, draw_hand
 from virtual_whiteboard.smoothing import LandmarkSmoother
 from virtual_whiteboard.stream import MjpegStream
 
@@ -34,11 +34,8 @@ def _draw_lines(frame: MatLike, *lines: str) -> None:
         cv2.putText(frame, text, (10, 30 + 30 * number), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
 
 
-def _debug_lines(result: TrackResult) -> tuple[str, str]:
-    def score(value: float | None) -> str:
-        return "-" if value is None else f"{value:.2f}"
-
-    return f"palm {score(result.palm_score)}", f"presence {score(result.presence)}"
+def _score(value: float | None) -> str:
+    return "-" if value is None else f"{value:.2f}"
 
 
 def main() -> None:
@@ -64,7 +61,7 @@ def main() -> None:
 
             lines = [f"{1 / (captured - last):.0f} fps"]
             if args.debug:
-                lines += _debug_lines(result)
+                lines += [f"palm {_score(result.palm_score)}", f"presence {_score(result.presence)}"]
             _draw_lines(frame, *lines)
             last = captured
 

@@ -8,7 +8,15 @@ Hand tracking on a Raspberry Pi 4 camera, viewed from the laptop.
 scripts/pi.py run           # sync + run on the Pi, view at http://localhost:8000/
 scripts/pi.py run --debug   # same, with model confidence scores on screen
 scripts/pi.py run --prefer speed  # grainier image, ~5 ms less lag
-scripts/pi.py watch         # keep the Pi's copy in sync while editing
+```
+
+## Development
+
+```sh
+uv sync                  # install dependencies, including ruff and basedpyright
+uv run ruff check        # lint (config in ruff.toml)
+uv run ruff format       # format
+uv run basedpyright      # type-check (config in pyproject.toml; stubs in typings/)
 ```
 
 ## How it works

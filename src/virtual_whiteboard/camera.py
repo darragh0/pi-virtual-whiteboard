@@ -1,4 +1,3 @@
-from dataclasses import dataclass
 from typing import TYPE_CHECKING, Final, Literal, final
 
 from cv2.typing import MatLike
@@ -14,17 +13,12 @@ type Preference = Literal["quality", "speed"]
 PREFERENCES: Final[tuple[Preference, ...]] = ("quality", "speed")
 
 
-@dataclass(frozen=True)
-class _SensorMode:
-    size: tuple[int, int]
-    max_fps: int  # Less time between frames means less lag and motion blur
-
-
-SENSOR_MODES: Final[dict[Preference, _SensorMode]] = {
+# Sensor size and its max fps (less time between frames means less lag and motion blur)
+SENSOR_MODES: Final[dict[Preference, tuple[tuple[int, int], int]]] = {
     # 2x2-binned: each pixel averages 4 sensor pixels, so much less noise; the ISP scales it to FRAME_SIZE
-    "quality": _SensorMode((1296, 972), 46),
+    "quality": ((1296, 972), 46),
     # Skips pixels instead of averaging them: grainier, but ~5 ms less lag
-    "speed": _SensorMode((640, 480), 60),
+    "speed": ((640, 480), 60),
 }
 
 
@@ -41,15 +35,15 @@ class PiCamera:
     """The Raspberry Pi CSI camera (OV5647 sensor)."""
 
     def __init__(self, prefer: Preference) -> None:
-        mode = SENSOR_MODES[prefer]
+        sensor_size, fps = SENSOR_MODES[prefer]
         self._camera = Picamera2(tuning=_tuning())
         config = self._camera.create_video_configuration(
             # libcamera's "RGB888" is BGR byte order in memory, i.e. what OpenCV expects
             main={"size": FRAME_SIZE, "format": "RGB888"},
-            sensor={"output_size": mode.size},
+            sensor={"output_size": sensor_size},
             transform=Transform(hflip=1),  # Mirror so on-screen movement matches the user's
             controls={
-                "FrameRate": mode.max_fps,
+                "FrameRate": fps,
                 "NoiseReductionMode": controls.draft.NoiseReductionModeEnum.HighQuality,
                 "AeFlickerMode": controls.AeFlickerModeEnum.Manual,
                 "AeFlickerPeriod": FLICKER_PERIOD_US,

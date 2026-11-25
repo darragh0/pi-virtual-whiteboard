@@ -23,53 +23,29 @@ PAGE: Final = b"""<!doctype html>
 
 
 @final
-class _LatestFrame:
-    """Holds only the newest frame: the producer overwrites it, consumers wait for a newer one.
+class MjpegStream:
+    """Serves frames as an MJPEG stream over HTTP, viewable in any browser.
 
-    Stale frames are dropped rather than queued, which keeps latency bounded when a viewer is slower
-    than the camera.
+    Viewers always get the newest frame: any published while they were busy sending are skipped, not queued.
     """
 
-    def __init__(self) -> None:
-        self._frame: MatLike | None = None
-        self._version = 0
-        self._closed = False
-        self._condition = threading.Condition()
-
-    def publish(self, frame: MatLike) -> None:
-        with self._condition:
-            self._frame = frame
-            self._version += 1
-            self._condition.notify_all()
-
-    def close(self) -> None:
-        """Wake all waiters; every later wait returns None."""
-        with self._condition:
-            self._closed = True
-            self._condition.notify_all()
-
-    def wait_newer(self, seen: int) -> tuple[int, MatLike] | None:
-        """Block until a frame newer than version `seen` exists; None once closed."""
-        with self._condition:
-            self._condition.wait_for(lambda: self._closed or self._version > seen)
-            if self._closed or self._frame is None:
-                return None
-            return self._version, self._frame
-
-
-@final
-class MjpegStream:
-    """Serves frames as an MJPEG stream over HTTP, viewable in any browser."""
-
     def __init__(self, host: str, port: int) -> None:
-        self._frames = _LatestFrame()
+        self._frame: MatLike | None = None
+        self._closed = False
+        self._new_frame = threading.Condition()
         self._server = ThreadingHTTPServer((host, port), self._handler_class())
         self._server.daemon_threads = True
 
         threading.Thread(target=self._server.serve_forever, daemon=True).start()
 
+    def _wait_for_frame(self) -> MatLike | None:
+        """Block until a new frame is published; None once closed."""
+        with self._new_frame:
+            self._new_frame.wait()
+            return None if self._closed else self._frame
+
     def _handler_class(self) -> type[BaseHTTPRequestHandler]:
-        frames = self._frames
+        stream = self
 
         class Handler(BaseHTTPRequestHandler):
             def do_GET(self) -> None:
@@ -93,11 +69,9 @@ class MjpegStream:
                 self.send_header("Content-Type", f"multipart/x-mixed-replace; boundary={BOUNDARY}")
                 self.send_header("Cache-Control", "no-store")
                 self.end_headers()
-                seen = 0
 
                 try:
-                    while (latest := frames.wait_newer(seen)) is not None:
-                        seen, frame = latest
+                    while (frame := stream._wait_for_frame()) is not None:
                         # Encoded here, off the tracking thread, so it doesn't add to the tracking loop's time
                         ok, encoded = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, JPEG_QUALITY])
                         if not ok:
@@ -120,9 +94,13 @@ class MjpegStream:
 
     def publish(self, frame: MatLike) -> None:
         """Send a BGR frame to viewers. The caller must not modify it afterwards."""
-        self._frames.publish(frame)
+        with self._new_frame:
+            self._frame = frame
+            self._new_frame.notify_all()
 
     def close(self) -> None:
-        self._frames.close()
+        with self._new_frame:
+            self._closed = True
+            self._new_frame.notify_all()
         self._server.shutdown()
         self._server.server_close()
