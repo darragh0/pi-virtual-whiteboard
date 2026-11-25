@@ -15,8 +15,9 @@ if TYPE_CHECKING:
 SENSOR_MODES: Final[dict[Preference, tuple[tuple[int, int], int]]] = {
     # 2x2-binned: each pixel averages 4 sensor pixels, so much less noise; the ISP scales it to FRAME_SIZE
     "quality": ((1296, 972), 46),
-    # Skips pixels instead of averaging them: grainier, but ~5 ms less lag
-    "speed": ((640, 480), 60),
+    # Skips pixels instead of averaging them: grainier, but the faster frames cap exposure (and so motion
+    # blur) at half
+    "sharp-motion": ((640, 480), 60),
 }
 
 

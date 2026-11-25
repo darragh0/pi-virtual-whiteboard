@@ -8,8 +8,8 @@ import argparse
 from collections.abc import Sequence
 from typing import Final, Literal
 
-type Preference = Literal["quality", "speed"]
-PREFERENCES: Final[tuple[Preference, ...]] = ("quality", "speed")
+type Preference = Literal["quality", "sharp-motion"]
+PREFERENCES: Final[tuple[Preference, ...]] = ("quality", "sharp-motion")
 
 type Hand = Literal["left", "right"]
 HANDS: Final[tuple[Hand, ...]] = ("left", "right")
@@ -27,7 +27,7 @@ def parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--prefer",
         choices=PREFERENCES,
-        help="quality: cleaner image (46 fps camera); speed: grainier, ~5 ms less lag (60 fps camera)",
+        help="quality: cleaner image; sharp-motion: half the motion blur, but darker and grainier",
     )
     parser.add_argument("--hand", choices=HANDS, help="only track this hand (default: whichever is found)")
     parser.add_argument("--debug", action="store_true", help="overlay the models' confidence scores")
