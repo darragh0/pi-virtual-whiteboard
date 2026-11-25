@@ -4,7 +4,7 @@ from contextlib import closing, suppress
 import cv2
 from cv2.typing import MatLike
 
-from pi_virtual_whiteboard.camera import PiCamera
+from pi_virtual_whiteboard.camera import open_camera
 from pi_virtual_whiteboard.cli import parse_args
 from pi_virtual_whiteboard.config import STREAM_HOST, STREAM_PORT
 from pi_virtual_whiteboard.hands import HandTracker, draw_hand
@@ -28,7 +28,7 @@ def main() -> None:
 
     with (
         closing(FrameServer(STREAM_HOST, STREAM_PORT)) as stream,
-        closing(PiCamera(args.prefer)) as camera,
+        closing(open_camera(args)) as camera,
         suppress(KeyboardInterrupt),
     ):
         last = time.perf_counter()

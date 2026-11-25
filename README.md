@@ -36,6 +36,14 @@ scripts/pi.py run   # same options as above; on the Pi it runs in place, no SSH
 Then open http://localhost:8000/ in the Pi's browser (F11 for fullscreen). The browser shares the
 Pi's CPU with the tracking, so expect a few fps less than viewing from the laptop.
 
+### Without the Pi
+
+The same app runs on a laptop's webcam, to develop without the Pi at hand:
+
+```sh
+uv run pi-virtual-whiteboard --camera webcam   # view at http://localhost:8000/; --webcam N for /dev/videoN
+```
+
 ## How it works
 
 ```mermaid
