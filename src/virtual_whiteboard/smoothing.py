@@ -12,11 +12,11 @@ import numpy.typing as npt
 
 from virtual_whiteboard.tracking import Points
 
-# MediaPipe's hand landmark smoothing settings. Speeds are in hand sizes per second, so the
-# filter behaves the same whether the hand is near or far from the camera
-MIN_CUTOFF_HZ: Final = 0.05  # Lower = less jitter when still, but more lag when starting to move
+# Speeds are in hand sizes per second, so the filter behaves the same whether the hand is near or far.
+# Tuned for responsiveness over MediaPipe's defaults (0.05, 80, 1.0), which visibly delay movement onset
+MIN_CUTOFF_HZ: Final = 0.5  # Lower = less jitter when still, but more lag when starting to move
 BETA: Final = 80.0  # Higher = less lag when moving fast
-DERIVATIVE_CUTOFF_HZ: Final = 1.0
+DERIVATIVE_CUTOFF_HZ: Final = 4.0  # Higher = notices a movement starting sooner
 
 
 def _smoothing_factor[T: (float, npt.NDArray[np.float64])](dt: float, cutoff_hz: T) -> T:
