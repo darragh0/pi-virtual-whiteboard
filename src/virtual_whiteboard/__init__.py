@@ -22,12 +22,15 @@ def main() -> None:
     try:
         while True:
             frame = camera.capture()
-            if (landmarks := tracker.track(frame)) is not None:
+            captured = time.perf_counter()
+
+            if (landmarks := tracker.track(frame, captured)) is not None:
                 draw_hand(frame, landmarks)
 
-            now = time.perf_counter()
-            _ = cv2.putText(frame, f"{1 / (now - last):.0f} fps", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-            last = now
+            _ = cv2.putText(
+                frame, f"{1 / (captured - last):.0f} fps", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2
+            )
+            last = captured
 
             stream.publish(frame)
 

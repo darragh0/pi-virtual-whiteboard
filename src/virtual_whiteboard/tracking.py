@@ -6,7 +6,7 @@ Follows MediaPipe's own pipeline, without the mediapipe package (which crashes o
 """
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Final, final
 
@@ -91,9 +91,10 @@ class _Model:
         self._input = self._interpreter.get_input_details()[0]["index"]
         self._outputs = {d["name"]: d["index"] for d in self._interpreter.get_output_details()}
 
-    def run(self, image_rgb: MatLike) -> dict[str, npt.NDArray[np.float64]]:
-        """Run on one RGB image and return each output (batch dimension removed) by tensor name."""
-        pixels = np.asarray(image_rgb, np.float32) / np.float32(255)  # The models expect [0, 1]
+    def run(self, image_bgr: MatLike) -> dict[str, npt.NDArray[np.float64]]:
+        """Run on one BGR image and return each output (batch dimension removed) by tensor name."""
+        image_rgb = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
+        pixels = np.asarray(image_rgb, np.float32) / np.float32(255)  # The models expect RGB in [0, 1]
         self._interpreter.set_tensor(self._input, pixels[np.newaxis])
         self._interpreter.invoke()
         return {
@@ -124,26 +125,43 @@ class HandTracker:
         self._palm_model = _Model(palm_model)
         self._landmark_model = _Model(landmark_model)
         self._anchors = _palm_anchors()
-        self._roi: Roi | None = None
+        self._roi: Roi | None = None  # Where the hand was last frame
+        self._velocity = np.zeros(2)  # Of the hand's centre, in pixels/second
+        self._timestamp = 0.0
 
-    def track(self, frame_bgr: MatLike) -> Points | None:
-        """Return the hand's 21 landmarks in frame pixels, or None if no hand is visible."""
-        frame_rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
+    def track(self, frame_bgr: MatLike, timestamp: float) -> Points | None:
+        """Return the hand's 21 landmarks in frame pixels, or None if no hand is visible.
 
-        # Follow the hand from last frame's position; if it got away, search the whole frame
-        landmarks = self._detect_landmarks(frame_rgb, self._roi) if self._roi is not None else None
-        if landmarks is None and (palm := self._detect_palm(frame_rgb)) is not None:
-            landmarks = self._detect_landmarks(frame_rgb, palm)
+        `timestamp` is the frame's capture time in seconds, used to predict where a moving hand went.
+        """
+        landmarks = None
+        if self._roi is not None:
+            # Look where the hand should be now if it kept moving at the same speed
+            predicted = replace(self._roi, centre=self._roi.centre + self._velocity * (timestamp - self._timestamp))
+            landmarks = self._detect_landmarks(frame_bgr, predicted)
 
-        self._roi = None if landmarks is None else self._roi_from_landmarks(landmarks)
+        if landmarks is None and (palm := self._detect_palm(frame_bgr)) is not None:
+            # Lost (or never had) the hand: search the whole frame
+            self._roi, self._velocity = None, np.zeros(2)
+            landmarks = self._detect_landmarks(frame_bgr, palm)
+
+        if landmarks is None:
+            self._roi = None
+            return None
+
+        roi = self._roi_from_landmarks(landmarks)
+        if self._roi is not None and timestamp > self._timestamp:
+            self._velocity = (roi.centre - self._roi.centre) / (timestamp - self._timestamp)
+
+        self._roi, self._timestamp = roi, timestamp
         return landmarks
 
-    def _detect_palm(self, frame_rgb: MatLike) -> Roi | None:
+    def _detect_palm(self, frame_bgr: MatLike) -> Roi | None:
         # Letterbox to a square so the detector sees undistorted proportions
-        height, width = frame_rgb.shape[:2]
+        height, width = frame_bgr.shape[:2]
         side = max(height, width)
         top, left = (side - height) // 2, (side - width) // 2
-        square = cv2.copyMakeBorder(frame_rgb, top, side - height - top, left, side - width - left, cv2.BORDER_CONSTANT)
+        square = cv2.copyMakeBorder(frame_bgr, top, side - height - top, left, side - width - left, cv2.BORDER_CONSTANT)
         outputs = self._palm_model.run(cv2.resize(square, (PALM_INPUT_SIZE, PALM_INPUT_SIZE)))
         boxes, scores = outputs["Identity"], outputs["Identity_1"][:, 0]
 
@@ -162,11 +180,11 @@ class HandTracker:
         angle = _angle(keypoints[PALM_KEYPOINT_WRIST], keypoints[PALM_KEYPOINT_MIDDLE_FINGER_BASE])
         return Roi.around(centre, float(width_px), float(height_px), angle, PALM_ROI_SCALE, PALM_ROI_SHIFT)
 
-    def _detect_landmarks(self, frame_rgb: MatLike, roi: Roi) -> Points | None:
+    def _detect_landmarks(self, frame_bgr: MatLike, roi: Roi) -> Points | None:
         """Return the landmarks of the hand inside `roi`, or None if there is no hand there."""
         crop_to_frame = roi.crop_to_frame(LANDMARK_INPUT_SIZE)
         crop = cv2.warpAffine(
-            frame_rgb,
+            frame_bgr,
             crop_to_frame,
             (LANDMARK_INPUT_SIZE, LANDMARK_INPUT_SIZE),
             flags=cv2.INTER_LINEAR | cv2.WARP_INVERSE_MAP,
