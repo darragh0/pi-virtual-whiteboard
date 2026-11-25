@@ -5,11 +5,11 @@ from contextlib import closing, suppress
 import cv2
 from cv2.typing import MatLike
 
-from virtual_whiteboard.camera import PREFERENCES, PiCamera, Preference
-from virtual_whiteboard.config import STREAM_HOST, STREAM_PORT
-from virtual_whiteboard.hands import HandTracker, draw_hand
-from virtual_whiteboard.smoothing import LandmarkSmoother
-from virtual_whiteboard.stream import MjpegStream
+from pi_virtual_whiteboard.camera import PREFERENCES, PiCamera, Preference
+from pi_virtual_whiteboard.config import STREAM_HOST, STREAM_PORT
+from pi_virtual_whiteboard.hands import HandTracker, draw_hand
+from pi_virtual_whiteboard.smoothing import LandmarkSmoother
+from pi_virtual_whiteboard.stream import MjpegStream
 
 
 class Args(argparse.Namespace):
@@ -19,7 +19,7 @@ class Args(argparse.Namespace):
 
 
 def _parse_args() -> Args:
-    parser = argparse.ArgumentParser(prog="virtual-whiteboard")
+    parser = argparse.ArgumentParser(prog="pi-virtual-whiteboard")
     parser.add_argument(
         "--prefer",
         choices=PREFERENCES,

@@ -13,10 +13,10 @@ import cv2
 import numpy as np
 from cv2.typing import MatLike
 
-from virtual_whiteboard.config import LANDMARK_MODEL, MIN_HAND_PRESENCE, MIN_PALM_SCORE, PALM_MODEL
-from virtual_whiteboard.hands.landmarks import HandLandmark
-from virtual_whiteboard.hands.model import Model
-from virtual_whiteboard.hands.roi import Points, Roi, angle_towards, rotation
+from pi_virtual_whiteboard.config import LANDMARK_MODEL, MIN_HAND_PRESENCE, MIN_PALM_SCORE, PALM_MODEL
+from pi_virtual_whiteboard.hands.landmarks import HandLandmark
+from pi_virtual_whiteboard.hands.model import Model
+from pi_virtual_whiteboard.hands.roi import Points, Roi, angle_towards, rotation
 
 PALM_INPUT_SIZE: Final = 192
 LANDMARK_INPUT_SIZE: Final = 224

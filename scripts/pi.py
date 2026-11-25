@@ -17,7 +17,7 @@ from typing import Final
 
 ROOT: Final = Path(__file__).resolve().parent.parent
 PI_HOST: Final = os.environ.get("PI_HOST", "dar@rpi")
-PI_DIR: Final = os.environ.get("PI_DIR", "virtual-whiteboard")  # Relative to the Pi user's home
+PI_DIR: Final = os.environ.get("PI_DIR", "pi-virtual-whiteboard")  # Relative to the Pi user's home
 
 LOG_NOISE: Final = "^INFO: Created TensorFlow Lite XNNPACK delegate"  # Harmless; no setting turns it off
 
@@ -54,7 +54,7 @@ def _sh(*args: str, stdin: str | None = None) -> None:
 
 def _stream_port() -> int:
     # Run config.py directly rather than importing the package, which needs the Pi's camera libraries
-    config = runpy.run_path(str(ROOT / "src" / "virtual_whiteboard" / "config.py"))
+    config = runpy.run_path(str(ROOT / "src" / "pi_virtual_whiteboard" / "config.py"))
     return int(config["STREAM_PORT"])
 
 
@@ -78,7 +78,7 @@ def run(app_args: Sequence[str]) -> None:
     step(f"Running on the Pi {_style('2', '(Ctrl+C to stop)')}")
     ok(f"View at {_style('1;36', f'http://localhost:{port}/')}")
 
-    app = shlex.join([".venv/bin/virtual-whiteboard", *app_args])
+    app = shlex.join([".venv/bin/pi-virtual-whiteboard", *app_args])
     remote = f"cd {PI_DIR} && LIBCAMERA_LOG_LEVELS=WARN {app} 2> >(grep --line-buffered -vE '{LOG_NOISE}' >&2)"
 
     # The stream binds to the Pi's localhost only; SSH forwards it to this machine

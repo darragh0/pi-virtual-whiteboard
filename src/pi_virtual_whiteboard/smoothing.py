@@ -10,12 +10,12 @@ from typing import final
 import numpy as np
 import numpy.typing as npt
 
-from virtual_whiteboard.config import (
+from pi_virtual_whiteboard.config import (
     SMOOTHING_BETA,
     SMOOTHING_DERIVATIVE_CUTOFF_HZ,
     SMOOTHING_MIN_CUTOFF_HZ,
 )
-from virtual_whiteboard.hands import Points
+from pi_virtual_whiteboard.hands import Points
 
 
 def _smoothing_factor[T: (float, npt.NDArray[np.float64])](dt: float, cutoff_hz: T) -> T:

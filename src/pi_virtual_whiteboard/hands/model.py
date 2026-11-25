@@ -9,7 +9,7 @@ import numpy.typing as npt
 from ai_edge_litert.interpreter import Interpreter
 from cv2.typing import MatLike
 
-from virtual_whiteboard.config import NUM_THREADS
+from pi_virtual_whiteboard.config import NUM_THREADS
 
 _BASE_URL: Final = "https://storage.googleapis.com/mediapipe-assets"
 
@@ -18,7 +18,7 @@ type Array = npt.NDArray[np.float64]
 
 def _download(name: str) -> Path:
     """Return the local path of a MediaPipe `.tflite` model, downloading it on first use."""
-    cache = Path(os.environ.get("XDG_CACHE_HOME") or Path.home() / ".cache") / "virtual-whiteboard"
+    cache = Path(os.environ.get("XDG_CACHE_HOME") or Path.home() / ".cache") / "pi-virtual-whiteboard"
     path = cache / f"{name}.tflite"
     if path.exists():
         return path

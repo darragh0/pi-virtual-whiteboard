@@ -6,7 +6,7 @@ from typing import Final, final, override
 import cv2
 from cv2.typing import MatLike
 
-from virtual_whiteboard.config import JPEG_QUALITY
+from pi_virtual_whiteboard.config import JPEG_QUALITY
 
 BOUNDARY: Final = "frame"
 

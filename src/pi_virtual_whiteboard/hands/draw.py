@@ -3,8 +3,8 @@ from typing import Final
 import cv2
 from cv2.typing import MatLike
 
-from virtual_whiteboard.hands.landmarks import HAND_CONNECTIONS
-from virtual_whiteboard.hands.roi import Points
+from pi_virtual_whiteboard.hands.landmarks import HAND_CONNECTIONS
+from pi_virtual_whiteboard.hands.roi import Points
 
 type BGR = tuple[int, int, int]
 

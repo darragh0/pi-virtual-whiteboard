@@ -4,7 +4,7 @@ from cv2.typing import MatLike
 from libcamera import Transform, controls
 from picamera2 import Picamera2
 
-from virtual_whiteboard.config import FLICKER_PERIOD_US, FRAME_SIZE, MAX_GAIN
+from pi_virtual_whiteboard.config import FLICKER_PERIOD_US, FRAME_SIZE, MAX_GAIN
 
 if TYPE_CHECKING:
     from picamera2 import Tuning  # Stub-only alias

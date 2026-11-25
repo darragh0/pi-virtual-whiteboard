@@ -1,6 +1,6 @@
 <div align="center">
 
-# virtual-whiteboard
+# pi-virtual-whiteboard
 
 **Real-time hand tracking on a Raspberry Pi 4 camera, streamed to your browser.**
 
@@ -29,8 +29,8 @@ After `scripts/pi.py setup` from the laptop (copies the code and installs depend
 terminal on the Pi:
 
 ```sh
-cd ~/virtual-whiteboard
-LIBCAMERA_LOG_LEVELS=WARN .venv/bin/virtual-whiteboard   # same options as above
+cd ~/pi-virtual-whiteboard
+LIBCAMERA_LOG_LEVELS=WARN .venv/bin/pi-virtual-whiteboard   # same options as above
 ```
 
 Then open http://localhost:8000/ in the Pi's browser (F11 for fullscreen). The browser shares the
