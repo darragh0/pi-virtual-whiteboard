@@ -26,12 +26,11 @@ scripts/pi.py run --hand right    # only track your right hand (or left)
 
 ### On a monitor plugged into the Pi
 
-After `scripts/pi.py setup` from the laptop (copies the code and installs dependencies), in a
-terminal on the Pi:
+Once the code is on the Pi (`scripts/pi.py setup` from the laptop), in a terminal on the Pi:
 
 ```sh
 cd ~/pi-virtual-whiteboard
-LIBCAMERA_LOG_LEVELS=WARN .venv/bin/pi-virtual-whiteboard   # same options as above
+scripts/pi.py run   # same options as above; on the Pi it runs in place, no SSH
 ```
 
 Then open http://localhost:8000/ in the Pi's browser (F11 for fullscreen). The browser shares the
