@@ -8,12 +8,12 @@ const PALM = [0, 5, 9, 13, 17]; // Wrist and finger knuckles: their average is t
 // Picked with keys 1-7 (or the swatches below the board), in this order
 export const COLOURS = [
   { name: "White", value: "#ffffff" },
-  { name: "Pink", value: "#ff2bd6" },
-  { name: "Orange", value: "#ff8a2b" },
-  { name: "Gold", value: "#ffd12b" },
-  { name: "Mint", value: "#4dffb8" },
-  { name: "Ocean", value: "#2bd9ff" },
-  { name: "Violet", value: "#a45bff" },
+  { name: "Red", value: "#ff3b30" },
+  { name: "Orange", value: "#ff9500" },
+  { name: "Yellow", value: "#ffcc00" },
+  { name: "Green", value: "#34c759" },
+  { name: "Blue", value: "#007aff" },
+  { name: "Purple", value: "#af52de" },
 ];
 
 const PEN_WIDTH = 0.012; // In board heights
