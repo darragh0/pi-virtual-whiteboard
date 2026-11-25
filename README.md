@@ -52,11 +52,10 @@ uv run pi-virtual-whiteboard --camera webcam   # view at http://localhost:8000/;
 | `hover` | Index and middle fingers up   | Move without drawing                                      |
 | `erase` | Open palm                     | Erase under the palm                                      |
 | `pinch` | Thumb and index tips together | Opens a colour wheel: move towards a colour, let go       |
-| `fist`  | All fingers curled            | Hold for a second to clear the board ("Wasted"; undoable) |
+| `fist`  | All fingers curled            | Hold for a second to clear the board (undoable)           |
 
 Keys: <kbd>Z</kbd> undo, <kbd>Y</kbd> redo, <kbd>C</kbd> clear, <kbd>S</kbd> save the drawing as a PNG,
-<kbd>V</kbd> cycle the view behind the ink (dimmed video, video, board only). The wanted level (top right) rises as
-you draw.
+<kbd>V</kbd> cycle the view behind the ink (dimmed video, video, board only).
 
 Gestures are read from the model's 3D landmarks, so they work whichever way the hand faces; the thresholds are in
 `config.py`. Run with `--debug` to see the hand's skeleton, the gesture being read and the measurements behind it.

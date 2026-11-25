@@ -1,4 +1,4 @@
-// Most Juanted's virtual whiteboard: the Pi's video, with what the hand draws on top
+// The virtual whiteboard: the Pi's video, with what the hand draws on top
 
 import { Board } from "./board.js";
 import { Controls } from "./controls.js";
@@ -6,7 +6,7 @@ import { Hud } from "./hud.js";
 import { streamFrames } from "./stream.js";
 
 const VIEWS = ["dim", "camera", "board"]; // Behind the ink: the video dimmed, as is, or hidden
-const SAVE_BACKGROUND = "#140a1f";
+const SAVE_BACKGROUND = "#000";
 
 const element = (id) => document.getElementById(id);
 const boardElement = element("board");
@@ -14,12 +14,7 @@ const video = element("video");
 const ink = element("ink");
 
 const board = new Board(ink);
-const hud = new Hud({
-  board: boardElement,
-  cursor: element("cursor"),
-  stars: element("stars"),
-  toast: element("toast"),
-});
+const hud = new Hud({ cursor: element("cursor"), toast: element("toast") });
 const controls = new Controls(board, hud);
 const gestureChips = document.querySelectorAll("#gestures [data-gesture]");
 
@@ -41,7 +36,7 @@ function save() {
   context.drawImage(ink, 0, 0);
 
   const link = document.createElement("a");
-  link.download = `most-juanted-${new Date().toISOString().slice(0, 19).replaceAll(":", "-")}.png`;
+  link.download = `whiteboard-${new Date().toISOString().slice(0, 19).replaceAll(":", "-")}.png`;
   link.href = image.toDataURL("image/png");
   link.click();
   hud.toast("Saved");

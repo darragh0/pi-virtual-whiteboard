@@ -15,12 +15,6 @@ def test_web_file_serves_scripts_as_javascript() -> None:
     assert file[1] == "text/javascript; charset=utf-8"
 
 
-def test_web_file_serves_the_bundled_font() -> None:
-    file = web_file("/fonts/anton.woff2")
-    assert file is not None
-    assert file[1] == "font/woff2"
-
-
-@pytest.mark.parametrize("path", ["/fonts/OFL.txt", "/../config.py", "/../../pyproject.toml", "/missing.js", "/web"])
+@pytest.mark.parametrize("path", ["/../config.py", "/../../pyproject.toml", "/missing.js", "/web"])
 def test_web_file_serves_nothing_outside_the_page(path: str) -> None:
     assert web_file(path) is None

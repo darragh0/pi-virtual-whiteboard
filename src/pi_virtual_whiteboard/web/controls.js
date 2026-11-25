@@ -28,7 +28,7 @@ export class Controls {
   #fistCleared = false; // One clear per fist: open the hand to clear again
   #wheelCentre = null; // Where the current pinch opened the colour wheel
   #wheelChoice = null;
-  #lastInk = null; // The last point inked, to measure how much is drawn (for the wanted level)
+  #lastInk = null; // The last point inked, to tell how far the hand moved during a dropout
   #lost = false; // Whether the hand dropped out since the last frame it was seen
 
   constructor(board, hud) {
@@ -97,11 +97,8 @@ export class Controls {
   #ink(point, now) {
     if (this.#lastInk !== null) {
       const [dx, dy] = [(point[0] - this.#lastInk[0]) * this.#hud.aspect, point[1] - this.#lastInk[1]];
-      const step = Math.hypot(dx, dy);
-      if (this.#lost && step > MAX_BRIDGE) {
+      if (this.#lost && Math.hypot(dx, dy) > MAX_BRIDGE) {
         this.#board.begin("pen", this.#colour.value, PEN_WIDTH); // Too far to join up: a new stroke
-      } else {
-        this.#hud.addHeat(step);
       }
     }
     this.#board.extend(point, now);
@@ -133,8 +130,6 @@ export class Controls {
 
   clear() {
     const cleared = this.#board.clear();
-    this.#hud.resetHeat();
-    this.#hud.wasted();
     if (cleared) this.#hud.toast("Board cleared · Z to undo");
   }
 }
