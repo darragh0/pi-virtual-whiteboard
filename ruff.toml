@@ -10,6 +10,7 @@ extend-exclude = [
   "ruff.toml",
   "setup.cfg",
   "pyproject.toml",
+  "reference",
 ]
 
 [format]
