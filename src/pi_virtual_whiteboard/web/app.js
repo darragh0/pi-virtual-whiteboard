@@ -58,6 +58,12 @@ function save() {
   hud.toast("Saved");
 }
 
+// Asks first: there's no gesture for it, so it's never an accident, but it wipes everything at once
+function clear() {
+  if (!window.confirm("Clear the board?")) return;
+  hud.toast(board.clear() ? "Board cleared · Z to undo" : "Nothing to clear");
+}
+
 function cycleView() {
   const view = VIEWS[(VIEWS.indexOf(boardElement.dataset.view) + 1) % VIEWS.length];
   boardElement.dataset.view = view;
@@ -67,6 +73,7 @@ function cycleView() {
 const KEYS = {
   z: () => hud.toast(board.undo() ? "Undo" : "Nothing to undo"),
   y: () => hud.toast(board.redo() ? "Redo" : "Nothing to redo"),
+  c: clear,
   s: save,
   v: cycleView,
 };
@@ -80,5 +87,7 @@ document.addEventListener("keydown", (event) => {
   event.preventDefault();
   action();
 });
+
+element("clear").addEventListener("click", clear);
 
 streamFrames(video, onFrame, (text) => (element("stats").textContent = text));

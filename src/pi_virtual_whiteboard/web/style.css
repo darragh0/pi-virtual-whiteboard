@@ -154,6 +154,20 @@ kbd {
   color: var(--text);
 }
 
+#clear {
+  margin-left: 1rem;
+  padding: 0.2rem 0.6rem;
+  border: 1px solid #ffffff33;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+
+#clear:hover {
+  border-color: var(--accent);
+}
+
 #stats {
   margin-left: 1rem;
   font:
