@@ -24,7 +24,7 @@ type BGR = tuple[int, int, int]
 NUM_THREADS: Final = 4
 PALM_INPUT_SIZE: Final = 192
 LANDMARK_INPUT_SIZE: Final = 224
-MIN_PALM_SCORE: Final = 0.5
+MIN_PALM_SCORE: Final = 0.7  # Above MediaPipe's 0.5: faces in dim light can score ~0.6
 MIN_HAND_PRESENCE: Final = 0.5
 
 # Crop placement, from MediaPipe's hand landmark graph configs
