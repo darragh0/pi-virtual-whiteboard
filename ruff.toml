@@ -63,3 +63,7 @@ convention = "pep257"
 
 [lint.mccabe]
 max-complexity = 10
+
+[lint.per-file-ignores]
+# Tests: plain asserts and literal expected values are the point; pytest finds them without a package
+"tests/**" = ["S101", "PLR2004", "FBT003", "INP001"]

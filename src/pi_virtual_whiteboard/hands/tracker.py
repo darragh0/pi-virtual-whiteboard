@@ -49,6 +49,11 @@ MAX_PALMS: Final = 2  # With both hands in view, the second palm is tried when t
 class TrackResult:
     landmarks: Points | None
     """The hand's 21 landmarks in frame pixels, or None if no hand is visible."""
+    world_landmarks: Points | None = None
+    """The same 21 landmarks in 3D, in metres around the hand's centre: its true shape, whichever way it faces.
+
+    Not turned to match the frame (they're in the crop's orientation), so only distances between them mean anything.
+    """
     hand: Hand | None = None
     """Which hand it is."""
     palm_score: float | None = None
@@ -117,15 +122,15 @@ class HandTracker:
                     break
 
         if found is None:
-            return TrackResult(None, None, palm_score, presence)
+            return TrackResult(None, None, None, palm_score, presence)
 
-        landmarks, hand = found
+        landmarks, world_landmarks, hand = found
         roi = _roi_from_landmarks(landmarks)
         if self._roi is not None and timestamp > self._timestamp:
             self._velocity = (roi.centre - self._roi.centre) / (timestamp - self._timestamp)
 
         self._roi, self._timestamp = roi, timestamp
-        return TrackResult(landmarks, hand, palm_score, presence)
+        return TrackResult(landmarks, world_landmarks, hand, palm_score, presence)
 
     def _detect_palms(self, frame_bgr: MatLike) -> tuple[list[Roi], float]:
         """Return crops around the likeliest palms (best first, up to MAX_PALMS) and the best palm score."""
@@ -162,7 +167,7 @@ class HandTracker:
 
     def _detect_landmarks(
         self, frame_bgr: MatLike, roi: Roi, *, check_hand: bool
-    ) -> tuple[tuple[Points, Hand] | None, float]:
+    ) -> tuple[tuple[Points, Points, Hand] | None, float]:
         """Return the hand inside `roi` (None if absent, or the wrong hand when `check_hand`) and its presence."""
         crop_to_frame = roi.crop_to_frame(LANDMARK_INPUT_SIZE)
         crop = cv2.warpAffine(
@@ -172,7 +177,7 @@ class HandTracker:
             flags=cv2.INTER_LINEAR | cv2.WARP_INVERSE_MAP,
         )
 
-        landmarks_crop, presence, left_hand, _world_landmarks = self._landmark_model.run(crop)
+        landmarks_crop, presence, left_hand, world_landmarks = self._landmark_model.run(crop)
         # The model's handedness assumes a mirrored (selfie-view) image, which is what our camera gives
         hand: Hand = "left" if left_hand[0] > 0.5 else "right"  # noqa: PLR2004 -- a probability
         score = float(presence[0])
@@ -180,4 +185,5 @@ class HandTracker:
             return None, score
 
         landmarks_px = landmarks_crop.reshape(21, 3)[:, :2]  # Drop depth
-        return (landmarks_px @ crop_to_frame[:, :2].T + crop_to_frame[:, 2], hand), score
+        landmarks_frame = landmarks_px @ crop_to_frame[:, :2].T + crop_to_frame[:, 2]
+        return (landmarks_frame, world_landmarks.reshape(21, 3), hand), score

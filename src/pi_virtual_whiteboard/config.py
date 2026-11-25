@@ -31,3 +31,16 @@ MIN_HAND_PRESENCE: Final = 0.5
 SMOOTHING_MIN_CUTOFF_HZ: Final = 0.5  # Lower = less jitter when still, but more lag when starting to move
 SMOOTHING_BETA: Final = 80.0  # Higher = less lag when moving fast
 SMOOTHING_DERIVATIVE_CUTOFF_HZ: Final = 4.0  # Higher = notices a movement starting sooner
+
+# Gestures, read from the 3D landmarks. Ratios compare distances within the hand, so they hold at any distance
+# from the camera
+# A finger is up when its tip is this many times further from the wrist than its middle joint is. Measured on a real
+# hand: 1.37 straight, 0.41-1.00 curled (including a fist facing the camera)
+EXTENDED_RATIO: Final = 1.15
+# Pinching: thumb and index tips closer than this many palm lengths (wrist to middle finger knuckle)...
+PINCH_RATIO: Final = 0.3
+# ...with the index tip this many times further from the wrist than its knuckle (rules out a fist's curled tip)
+PINCH_REACH_RATIO: Final = 1.2
+# A new gesture takes over only once it has lasted this long, so in-between shapes and misread frames don't flash,
+# and losing the hand for a frame or two doesn't end a stroke
+GESTURE_HOLD_S: Final = 0.12

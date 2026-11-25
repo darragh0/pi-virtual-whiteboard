@@ -44,6 +44,20 @@ The same app runs on a laptop's webcam, to develop without the Pi at hand:
 uv run pi-virtual-whiteboard --camera webcam   # view at http://localhost:8000/; --webcam N for /dev/videoN
 ```
 
+## Gestures
+
+| Gesture | Hand                          | Does                    |
+| ------- | ----------------------------- | ----------------------- |
+| `draw`  | Index finger up               | Pen down                |
+| `hover` | Index and middle fingers up   | Move without drawing    |
+| `erase` | Open palm                     | Erase                   |
+| `pinch` | Thumb and index tips together | Pick a colour           |
+| `fist`  | All fingers curled            | Hold to clear the board |
+
+The board itself (the "Does" column) is in progress: for now the browser marks the gesture at the index fingertip.
+Run with `--debug` to also see the measurements behind it. Gestures are read from the model's 3D landmarks, so they
+work whichever way the hand faces; the thresholds are in `config.py`.
+
 ## How it works
 
 ```mermaid
@@ -74,4 +88,5 @@ uv sync                  # install dependencies, including ruff and basedpyright
 uv run ruff check        # lint (config in ruff.toml)
 uv run ruff format       # format
 uv run basedpyright      # type-check (config in pyproject.toml; stubs in typings/)
+uv run pytest            # tests (in tests/)
 ```

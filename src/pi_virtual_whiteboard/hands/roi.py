@@ -6,7 +6,7 @@ import numpy as np
 import numpy.typing as npt
 
 type Points = npt.NDArray[np.float64]
-"""(N, 2) pixel coordinates."""
+"""(N, 2) pixel coordinates, or (N, 3) for 3D landmarks."""
 
 
 def rotation(angle: float) -> npt.NDArray[np.float64]:

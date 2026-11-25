@@ -1,0 +1,35 @@
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: #111;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+/* As large as fits in most of the window, at the video's aspect ratio (app.js sets it from the first frame) */
+#board {
+  --aspect: calc(4 / 3);
+  position: relative;
+  aspect-ratio: var(--aspect);
+  height: min(75vh, 95vw / var(--aspect));
+}
+
+/* The video and the canvas drawn over it cover exactly the same area, so canvas coordinates match the frame's */
+#video,
+#overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+#stats {
+  color: #888;
+  font: 14px monospace;
+}

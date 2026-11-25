@@ -3,6 +3,7 @@ from collections.abc import Mapping
 from contextlib import suppress
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 from typing import Final, final, override
 
 import cv2
@@ -10,51 +11,13 @@ from cv2.typing import MatLike
 
 from pi_virtual_whiteboard.config import JPEG_QUALITY
 
-# Shows the video scaled up to most of the browser window (the browser does the scaling, not the Pi).
-# The page asks for one frame at a time, and only once the last one has shown: frames can never queue up
-# on a slow network, so the view stays live and the frame rate drops instead of lag building up
-PAGE: Final = b"""<!doctype html>
-<title>Virtual Whiteboard</title>
-<style>
-  html, body { margin: 0; height: 100%; background: #111; }
-  body { display: flex; flex-direction: column; align-items: center; justify-content: center; }
-  img { height: 75vh; max-width: 95vw; object-fit: contain; }
-  p { color: #888; font: 14px monospace; }
-</style>
-<img alt="Camera stream">
-<p>connecting...</p>
-<script>
-  // fetch() rather than setting img.src to the URL, so the browser doesn't flash "Waiting for localhost..."
-  const img = document.querySelector("img");
-  const stats = document.querySelector("p");
-  let fps = 0, mbps = 0, lag = 0;  // Smoothed, so the numbers don't flicker
-  (async () => {
-    for (;;) {
-      try {
-        const start = performance.now();
-        const response = await fetch("/frame", { cache: "no-store" });
-        const frame = await response.blob();
-        const url = URL.createObjectURL(frame);
-        img.src = url;
-        await img.decode();
-        URL.revokeObjectURL(url);
-
-        // Received rate: if well below the fps on the video, the network is what's holding it back.
-        // Lag: capture to on screen, minus camera exposure (assumes the Pi's and this device's clocks agree)
-        const seconds = (performance.now() - start) / 1000;
-        fps = 0.9 * fps + 0.1 / seconds;
-        mbps = 0.9 * mbps + 0.1 * (frame.size * 8) / seconds / 1e6;
-        lag = 0.9 * lag + 0.1 * (Date.now() - 1000 * response.headers.get("X-Captured"));
-        stats.textContent =
-          `network: ${fps.toFixed(0)} fps received, ${mbps.toFixed(1)} Mbit/s, ${lag.toFixed(0)} ms lag`;
-      } catch {
-        stats.textContent = "reconnecting...";
-        await new Promise((resolve) => setTimeout(resolve, 500));  // App restarting: retry
-      }
-    }
-  })();
-</script>
-"""
+# The page and its files, served as-is. Read on every request, so edits show on a browser refresh
+WEB_DIR: Final = Path(__file__).parent / "web"
+WEB_FILES: Final = {
+    "/": ("index.html", "text/html; charset=utf-8"),
+    "/style.css": ("style.css", "text/css; charset=utf-8"),
+    "/app.js": ("app.js", "text/javascript; charset=utf-8"),
+}
 
 
 @final
@@ -64,6 +27,7 @@ class FrameServer:
     def __init__(self, host: str, port: int) -> None:
         self._frame: MatLike | None = None
         self._captured = 0.0  # Unix time the frame was captured
+        self._hand = ""  # JSON describing the hand found in the frame, published with it
         self._closed = False
         self._new_frame = threading.Condition()
         self._server = ThreadingHTTPServer((host, port), self._handler_class())
@@ -71,11 +35,11 @@ class FrameServer:
 
         threading.Thread(target=self._server.serve_forever, daemon=True).start()
 
-    def _wait_for_frame(self) -> tuple[MatLike, float] | None:
-        """Block until a new frame is published and return it with its capture time; None once closed."""
+    def _wait_for_frame(self) -> tuple[MatLike, float, str] | None:
+        """Block until a new frame is published and return it with its capture time and hand; None once closed."""
         with self._new_frame:
             self._new_frame.wait()
-            return None if self._closed or self._frame is None else (self._frame, self._captured)
+            return None if self._closed or self._frame is None else (self._frame, self._captured, self._hand)
 
     def _handler_class(self) -> type[BaseHTTPRequestHandler]:
         server = self
@@ -84,11 +48,12 @@ class FrameServer:
             protocol_version: str = "HTTP/1.1"  # Keep-alive: reuse one connection for every frame
 
             def do_GET(self) -> None:
-                match self.path.split("?")[0]:
-                    case "/":
-                        self._send(PAGE, "text/html; charset=utf-8")
+                match path := self.path.split("?")[0]:
                     case "/frame":
                         self._send_frame()
+                    case _ if path in WEB_FILES:
+                        name, content_type = WEB_FILES[path]
+                        self._send((WEB_DIR / name).read_bytes(), content_type)
                     case _:
                         self.send_error(HTTPStatus.NOT_FOUND)
 
@@ -97,12 +62,12 @@ class FrameServer:
                     self.send_error(HTTPStatus.SERVICE_UNAVAILABLE)
                     return
 
-                frame, captured = latest
+                frame, captured, hand = latest
 
                 # Encoded here, off the tracking thread, so it doesn't add to the tracking loop's time
                 ok, jpeg = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, JPEG_QUALITY])
                 if ok:
-                    self._send(jpeg.tobytes(), "image/jpeg", {"X-Captured": f"{captured:.3f}"})
+                    self._send(jpeg.tobytes(), "image/jpeg", {"X-Captured": f"{captured:.3f}", "X-Hand": hand})
                 else:
                     self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR)
 
@@ -123,10 +88,13 @@ class FrameServer:
 
         return Handler
 
-    def publish(self, frame: MatLike, captured: float) -> None:
-        """Send a BGR frame captured at Unix time `captured` to viewers. The caller must not modify it afterwards."""
+    def publish(self, frame: MatLike, captured: float, hand: str) -> None:
+        """Send a BGR frame captured at Unix time `captured` to viewers, with the hand found in it as JSON.
+
+        The caller must not modify the frame afterwards.
+        """
         with self._new_frame:
-            self._frame, self._captured = frame, captured
+            self._frame, self._captured, self._hand = frame, captured, hand
             self._new_frame.notify_all()
 
     def close(self) -> None:
