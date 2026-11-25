@@ -18,7 +18,8 @@ virtual-whiteboard = "virtual_whiteboard:main"
 requires = ["uv_build>=0.13.9,<0.14.0"]
 build-backend = "uv_build"
 
-[tool.pyright]
+[tool.basedpyright]
+typeCheckingMode = "recommended"
 venvPath = "."
 venv = ".venv"
 ignore = ["reference"]
@@ -26,3 +27,6 @@ ignore = ["reference"]
 reportAny = false
 # picamera2/libcamera are typed by local stubs but only installed on the Pi
 reportMissingModuleSource = false
+
+[dependency-groups]
+dev = ["basedpyright>=1.40.2", "ruff>=0.17.6"]
