@@ -2,7 +2,7 @@
 
 # pi-virtual-whiteboard
 
-**Real-time hand tracking on a Raspberry Pi 4 camera, streamed to your browser.**
+**Draw in the air: a hand-tracked whiteboard on a Raspberry Pi 4 camera, in your browser.**
 
 [![Python 3.13](https://img.shields.io/badge/python-3.13-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![Raspberry Pi 4](https://img.shields.io/badge/Raspberry_Pi-4-A22846?logo=raspberrypi&logoColor=white)](https://www.raspberrypi.com/products/raspberry-pi-4-model-b/)
@@ -46,17 +46,20 @@ uv run pi-virtual-whiteboard --camera webcam   # view at http://localhost:8000/;
 
 ## Gestures
 
-| Gesture | Hand                          | Does                    |
-| ------- | ----------------------------- | ----------------------- |
-| `draw`  | Index finger up               | Pen down                |
-| `hover` | Index and middle fingers up   | Move without drawing    |
-| `erase` | Open palm                     | Erase                   |
-| `pinch` | Thumb and index tips together | Pick a colour           |
-| `fist`  | All fingers curled            | Hold to clear the board |
+| Gesture | Hand                          | Does                                                      |
+| ------- | ----------------------------- | --------------------------------------------------------- |
+| `draw`  | Index finger up               | Pen down                                                  |
+| `hover` | Index and middle fingers up   | Move without drawing                                      |
+| `erase` | Open palm                     | Erase under the palm                                      |
+| `pinch` | Thumb and index tips together | Opens a colour wheel: move towards a colour, let go       |
+| `fist`  | All fingers curled            | Hold for a second to clear the board ("Wasted"; undoable) |
 
-The board itself (the "Does" column) is in progress: for now the browser marks the gesture at the index fingertip.
-Run with `--debug` to also see the measurements behind it. Gestures are read from the model's 3D landmarks, so they
-work whichever way the hand faces; the thresholds are in `config.py`.
+Keys: <kbd>Z</kbd> undo, <kbd>Y</kbd> redo, <kbd>C</kbd> clear, <kbd>S</kbd> save the drawing as a PNG,
+<kbd>V</kbd> cycle the view behind the ink (dimmed video, video, board only). The wanted level (top right) rises as
+you draw.
+
+Gestures are read from the model's 3D landmarks, so they work whichever way the hand faces; the thresholds are in
+`config.py`. Run with `--debug` to see the hand's skeleton, the gesture being read and the measurements behind it.
 
 ## How it works
 
@@ -65,7 +68,8 @@ flowchart LR
     cam[Camera<br>640×480] --> tracked{Hand tracked<br>last frame?}
     tracked -- no --> palm[Palm detector] --> crop
     tracked -- yes --> crop[Crop around<br>the hand]
-    crop --> lm[Landmark model<br>21 points] --> smooth[One Euro<br>smoothing] --> stream[Browser<br>view]
+    crop --> lm[Landmark model<br>21 points] --> smooth[One Euro<br>smoothing] --> gesture[Gesture]
+    gesture --> stream[Browser:<br>video + strokes]
     lm -. next crop .-> crop
 ```
 
@@ -73,6 +77,9 @@ MediaPipe's palm detection and hand landmark models (lite variants) run directly
 [LiteRT](https://pypi.org/project/ai-edge-litert/) with 4 threads, following MediaPipe's own
 pipeline: the slow palm detector only runs while no hand is tracked; otherwise the previous
 frame's landmarks give the crop for the next, so only the fast landmark model runs.
+
+The Pi only tracks: each video frame goes to the browser with the hand's landmarks and gesture, and the browser
+(`src/pi_virtual_whiteboard/web/`) draws the strokes, so the whiteboard costs the Pi's CPU nothing.
 
 > [!NOTE]
 > The `mediapipe` package itself is not used: every recent wheel needs the ARM AES extension,

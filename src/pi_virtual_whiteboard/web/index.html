@@ -3,15 +3,37 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Virtual Whiteboard</title>
+    <title>Most Juanted · Virtual Whiteboard</title>
+    <link rel="icon" href="data:," />
     <link rel="stylesheet" href="style.css" />
+    <script type="module" src="app.js"></script>
   </head>
   <body>
-    <main id="board">
-      <img id="video" alt="Camera stream" />
-      <canvas id="overlay"></canvas>
+    <main id="board" data-view="dim">
+      <img id="video" alt="Camera" />
+      <canvas id="ink"></canvas>
+      <canvas id="cursor"></canvas>
+
+      <h1 id="title">Most <span>Juanted</span></h1>
+      <div id="stars" aria-label="Wanted level">
+        <span>★</span><span>★</span><span>★</span><span>★</span><span>★</span>
+      </div>
+      <p id="toast" role="status"></p>
+      <p id="wasted">Wasted</p>
     </main>
-    <p id="stats">connecting...</p>
-    <script src="app.js"></script>
+
+    <footer>
+      <ul id="gestures">
+        <li data-gesture="draw"><b>☝️</b> Draw</li>
+        <li data-gesture="hover"><b>✌️</b> Move</li>
+        <li data-gesture="erase"><b>🖐️</b> Erase</li>
+        <li data-gesture="pinch"><b>🤏</b> Colour <i id="colour"></i></li>
+        <li data-gesture="fist"><b>✊</b> Hold to clear</li>
+      </ul>
+      <p id="keys">
+        <kbd>Z</kbd> undo <kbd>Y</kbd> redo <kbd>C</kbd> clear <kbd>S</kbd> save <kbd>V</kbd> view
+        <span id="stats">connecting...</span>
+      </p>
+    </footer>
   </body>
 </html>

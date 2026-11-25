@@ -41,7 +41,11 @@ def parser() -> argparse.ArgumentParser:
         help="Pi camera only. quality: cleaner image; sharp-motion: half the motion blur, but darker and grainier",
     )
     parser.add_argument("--hand", choices=HANDS, help="only track this hand (default: whichever is found)")
-    parser.add_argument("--debug", action="store_true", help="overlay the models' confidence scores")
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="overlay the hand's skeleton, fps, model confidences and gesture measurements",
+    )
     return parser
 
 

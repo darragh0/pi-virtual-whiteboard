@@ -66,18 +66,20 @@ def main() -> None:
                 world_landmarks = world_smoother.smooth(result.world_landmarks, captured)
                 shape = measure(world_landmarks)
                 gesture = gestures.update(classify(shape), captured)
-                draw_hand(frame, landmarks)
 
-            lines = [f"{1 / (captured - last):.0f} fps"]
+            # The video stays clean for the whiteboard; the tracking's workings are shown only when debugging
             if args.debug:
-                lines += [
+                if landmarks is not None:
+                    draw_hand(frame, landmarks)
+                _draw_lines(
+                    frame,
+                    f"{1 / (captured - last):.0f} fps",
                     f"palm {_score(result.palm_score)}",
                     f"presence {_score(result.presence)}",
                     f"hand {result.hand or '-'}",
                     f"gesture {gesture}",
                     *(shape.describe() if shape else ()),
-                ]
-            _draw_lines(frame, *lines)
+                )
             last = captured
 
             stream.publish(frame, captured_wall, _hand_json(frame, landmarks, result.hand, gesture))

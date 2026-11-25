@@ -12,12 +12,24 @@ from cv2.typing import MatLike
 from pi_virtual_whiteboard.config import JPEG_QUALITY
 
 # The page and its files, served as-is. Read on every request, so edits show on a browser refresh
-WEB_DIR: Final = Path(__file__).parent / "web"
-WEB_FILES: Final = {
-    "/": ("index.html", "text/html; charset=utf-8"),
-    "/style.css": ("style.css", "text/css; charset=utf-8"),
-    "/app.js": ("app.js", "text/javascript; charset=utf-8"),
+WEB_DIR: Final = (Path(__file__).parent / "web").resolve()
+CONTENT_TYPES: Final = {
+    ".html": "text/html; charset=utf-8",
+    ".css": "text/css; charset=utf-8",
+    ".js": "text/javascript; charset=utf-8",
+    ".woff2": "font/woff2",
 }
+
+
+def web_file(url_path: str) -> tuple[bytes, str] | None:
+    """Return the contents and content type of the page's file at `url_path`, or None if there's no such file.
+
+    Only files inside WEB_DIR are served, so a path like /../config.py can't reach the rest of the app.
+    """
+    file = (WEB_DIR / (url_path.lstrip("/") or "index.html")).resolve()
+    if not file.is_relative_to(WEB_DIR) or not file.is_file() or file.suffix not in CONTENT_TYPES:
+        return None
+    return file.read_bytes(), CONTENT_TYPES[file.suffix]
 
 
 @final
@@ -48,14 +60,13 @@ class FrameServer:
             protocol_version: str = "HTTP/1.1"  # Keep-alive: reuse one connection for every frame
 
             def do_GET(self) -> None:
-                match path := self.path.split("?")[0]:
-                    case "/frame":
-                        self._send_frame()
-                    case _ if path in WEB_FILES:
-                        name, content_type = WEB_FILES[path]
-                        self._send((WEB_DIR / name).read_bytes(), content_type)
-                    case _:
-                        self.send_error(HTTPStatus.NOT_FOUND)
+                path = self.path.split("?")[0]
+                if path == "/frame":
+                    self._send_frame()
+                elif (file := web_file(path)) is not None:
+                    self._send(*file)
+                else:
+                    self.send_error(HTTPStatus.NOT_FOUND)
 
             def _send_frame(self) -> None:
                 if (latest := server._wait_for_frame()) is None:
