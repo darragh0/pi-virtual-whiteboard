@@ -18,19 +18,21 @@
 From the laptop (the Pi is reached over SSH as `dar@rpi`; override with `PI_HOST`):
 
 ```sh
-scripts/pi.py run                       # sync + run on the Pi, view at http://localhost:8000/
-scripts/pi.py run --debug               # same, with model confidence scores on screen
-scripts/pi.py run --prefer sharp-motion # less motion blur, but darker and grainier
-scripts/pi.py run --hand right          # only track your right hand (or left)
+scripts/pi.py run --hand right                        # sync + run on the Pi, view at http://localhost:8000/
+scripts/pi.py run --hand right --skeleton             # same, with the hand's skeleton on the video
+scripts/pi.py run --hand right --debug                # skeleton, plus model confidence scores on screen
+scripts/pi.py run --hand right --prefer sharp-motion  # less motion blur, but darker and grainier
 ```
+
+`--hand` (`left` or `right`) is the hand you draw with; only that hand is tracked.
 
 ### On a monitor plugged into the Pi
 
-Once the code is on the Pi (`scripts/pi.py setup` from the laptop), in a terminal on the Pi:
+Once the code is on the Pi (`scripts/pi.py sync` from the laptop), in a terminal on the Pi:
 
 ```sh
 cd ~/pi-virtual-whiteboard
-scripts/pi.py run   # same options as above; on the Pi it runs in place, no SSH
+uv run --no-dev main --hand right   # same options as above; --no-dev skips the dev tools
 ```
 
 Then open http://localhost:8000/ in the Pi's browser (F11 for fullscreen). The browser shares the
@@ -41,7 +43,7 @@ Pi's CPU with the tracking, so expect a few fps less than viewing from the lapto
 The same app runs on a laptop's webcam, to develop without the Pi at hand:
 
 ```sh
-uv run pi-virtual-whiteboard --camera webcam   # view at http://localhost:8000/; --webcam N for /dev/videoN
+uv run main --hand right   # view at http://localhost:8000/; --webcam N for /dev/videoN
 ```
 
 ## Gestures
@@ -57,7 +59,7 @@ Keys, each also a button below the board: <kbd>1</kbd>-<kbd>7</kbd> colour, <kbd
 <kbd>C</kbd> clear (asks first).
 
 Gestures are read from the model's 3D landmarks, so they work whichever way the hand faces; the thresholds are in
-`config.py`. Run with `--debug` to see the hand's skeleton, the gesture being read and the measurements behind it.
+`config.py`. Run with `--debug` to see the skeleton, the gesture being read and the measurements behind it.
 
 ## How it works
 

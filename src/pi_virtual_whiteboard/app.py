@@ -1,6 +1,7 @@
 import json
 import time
 from contextlib import closing, suppress
+from typing import Final
 
 import cv2
 import numpy as np
@@ -13,10 +14,15 @@ from pi_virtual_whiteboard.hands import Gesture, GestureFilter, HandTracker, Poi
 from pi_virtual_whiteboard.smoothing import LandmarkSmoother
 from pi_virtual_whiteboard.stream import FrameServer
 
+NEON_GREEN: Final = (20, 255, 57)  # BGR
+
 
 def _draw_lines(frame: MatLike, *lines: str) -> None:
+    # A black outline keeps the text sharp: JPEG stores colour at half resolution, which blurs coloured text alone
     for number, text in enumerate(lines):
-        cv2.putText(frame, text, (10, 30 + 30 * number), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
+        origin = (8, 20 + 18 * number)
+        for colour, thickness in (((0, 0, 0), 3), (NEON_GREEN, 1)):
+            cv2.putText(frame, text, origin, cv2.FONT_HERSHEY_SIMPLEX, 0.5, colour, thickness, cv2.LINE_AA)
 
 
 def _score(value: float | None) -> str:
@@ -67,10 +73,9 @@ def main() -> None:
                 shape = measure(world_landmarks)
                 gesture = gestures.update(classify(shape, drawing=gestures.current == Gesture.DRAW), captured)
 
-            # The video stays clean for the whiteboard; the tracking's workings are shown only when debugging
+            if landmarks is not None and (args.skeleton or args.debug):
+                draw_hand(frame, landmarks)
             if args.debug:
-                if landmarks is not None:
-                    draw_hand(frame, landmarks)
                 _draw_lines(
                     frame,
                     f"{1 / (captured - last):.0f} fps",

@@ -11,40 +11,40 @@ from typing import Final, Literal
 type Preference = Literal["quality", "sharp-motion"]
 PREFERENCES: Final[tuple[Preference, ...]] = ("quality", "sharp-motion")
 
-type CameraKind = Literal["pi", "webcam"]
-CAMERAS: Final[tuple[CameraKind, ...]] = ("pi", "webcam")
-
 type Hand = Literal["left", "right"]
 HANDS: Final[tuple[Hand, ...]] = ("left", "right")
 
 
 class Args(argparse.Namespace):
     # Class-level defaults double as argparse defaults (it skips attributes already set)
-    camera: CameraKind = "pi"
     webcam: int = 0
     prefer: Preference = "quality"
-    hand: Hand | None = None
+    hand: Hand = "right"  # Placeholder: --hand is required, so always set
+    skeleton: bool = False
     debug: bool = False
 
 
 def parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="pi-virtual-whiteboard")
-    parser.add_argument(
-        "--camera",
-        choices=CAMERAS,
-        help="pi: the Pi's camera (default); webcam: e.g. a laptop's, to develop without the Pi",
+    # Own groups, so --help lists the required option first (argparse puts its built-in "options" group first)
+    parser = argparse.ArgumentParser(
+        prog="pi-virtual-whiteboard", usage="%(prog)s --hand {left,right} [options]", add_help=False
     )
-    parser.add_argument("--webcam", type=int, metavar="N", help="with --camera webcam: use /dev/videoN (default: 0)")
-    parser.add_argument(
+    required = parser.add_argument_group("required")
+    required.add_argument("--hand", choices=HANDS, required=True, help="The hand you draw with")
+
+    options = parser.add_argument_group("options")
+    options.add_argument("-h", "--help", action="help", help="Show this help and exit")
+    options.add_argument("--webcam", type=int, metavar="N", help="Off the Pi: use /dev/videoN (default: 0)")
+    options.add_argument(
         "--prefer",
         choices=PREFERENCES,
-        help="Pi camera only. quality: cleaner image; sharp-motion: half the motion blur, but darker and grainier",
+        help="Pi camera only. quality (default): cleaner image; sharp-motion: less blur, but darker and grainier",
     )
-    parser.add_argument("--hand", choices=HANDS, help="only track this hand (default: whichever is found)")
-    parser.add_argument(
+    options.add_argument("--skeleton", action="store_true", help="Draw the hand's skeleton on the video")
+    options.add_argument(
         "--debug",
         action="store_true",
-        help="overlay the hand's skeleton, fps, model confidences and gesture measurements",
+        help="Same as --skeleton, plus fps, model confidences and gesture measurements",
     )
     return parser
 

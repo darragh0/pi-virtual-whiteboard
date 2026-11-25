@@ -92,9 +92,9 @@ def _roi_from_landmarks(landmarks: Points) -> Roi:
 
 @final
 class HandTracker:
-    """Tracks one hand across video frames: the given one, or any if `hand` is None."""
+    """Tracks one hand (left or right) across video frames."""
 
-    def __init__(self, hand: Hand | None = None) -> None:
+    def __init__(self, hand: Hand) -> None:
         self._hand = hand
         self._palm_model = Model(PALM_MODEL)
         self._landmark_model = Model(LANDMARK_MODEL)
@@ -181,7 +181,7 @@ class HandTracker:
         # The model's handedness assumes a mirrored (selfie-view) image, which is what our camera gives
         hand: Hand = "left" if left_hand[0] > 0.5 else "right"  # noqa: PLR2004 -- a probability
         score = float(presence[0])
-        if score < MIN_HAND_PRESENCE or (check_hand and self._hand is not None and hand != self._hand):
+        if score < MIN_HAND_PRESENCE or (check_hand and hand != self._hand):
             return None, score
 
         landmarks_px = landmarks_crop.reshape(21, 3)[:, :2]  # Drop depth
