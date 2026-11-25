@@ -128,13 +128,16 @@ class HandTracker:
         self._roi: Roi | None = None  # Where the hand was last frame
         self._velocity = np.zeros(2)  # Of the hand's centre, in pixels/second
         self._timestamp = 0.0
+        # Confidences from the last frame, for debugging; None if that model didn't run
+        self.palm_score: float | None = None
+        self.presence: float | None = None
 
     def track(self, frame_bgr: MatLike, timestamp: float) -> Points | None:
         """Return the hand's 21 landmarks in frame pixels, or None if no hand is visible.
 
         `timestamp` is the frame's capture time in seconds, used to predict where a moving hand went.
         """
-        landmarks = None
+        landmarks = self.palm_score = self.presence = None
         if self._roi is not None:
             # Look where the hand should be now if it kept moving at the same speed
             predicted = replace(self._roi, centre=self._roi.centre + self._velocity * (timestamp - self._timestamp))
@@ -166,7 +169,8 @@ class HandTracker:
         boxes, scores = outputs["Identity"], outputs["Identity_1"][:, 0]
 
         best = int(np.argmax(scores))
-        if _sigmoid(float(scores[best])) < MIN_PALM_SCORE:
+        self.palm_score = _sigmoid(float(scores[best]))
+        if self.palm_score < MIN_PALM_SCORE:
             return None
 
         # Box: centre offset from its anchor, size, then 7 keypoint offsets, all in input pixels
@@ -191,7 +195,8 @@ class HandTracker:
         )
 
         outputs = self._landmark_model.run(crop)
-        if outputs["Identity_1"][0] < MIN_HAND_PRESENCE:
+        self.presence = float(outputs["Identity_1"][0])
+        if self.presence < MIN_HAND_PRESENCE:
             return None
 
         landmarks_crop = outputs["Identity"].reshape(21, 3)[:, :2]  # Drop depth
