@@ -5,18 +5,17 @@ It's a low-pass filter whose cutoff rises with speed: heavy smoothing while the 
 """
 
 import math
-from typing import Final, final
+from typing import final
 
 import numpy as np
 import numpy.typing as npt
 
-from virtual_whiteboard.tracking import Points
-
-# Speeds are in hand sizes per second, so the filter behaves the same whether the hand is near or far.
-# Tuned for responsiveness over MediaPipe's defaults (0.05, 80, 1.0), which visibly delay movement onset
-MIN_CUTOFF_HZ: Final = 0.5  # Lower = less jitter when still, but more lag when starting to move
-BETA: Final = 80.0  # Higher = less lag when moving fast
-DERIVATIVE_CUTOFF_HZ: Final = 4.0  # Higher = notices a movement starting sooner
+from virtual_whiteboard.config import (
+    SMOOTHING_BETA,
+    SMOOTHING_DERIVATIVE_CUTOFF_HZ,
+    SMOOTHING_MIN_CUTOFF_HZ,
+)
+from virtual_whiteboard.hands import Points
 
 
 def _smoothing_factor[T: (float, npt.NDArray[np.float64])](dt: float, cutoff_hz: T) -> T:
@@ -44,11 +43,11 @@ class LandmarkSmoother:
 
         hand_size = float(np.mean(landmarks.max(axis=0) - landmarks.min(axis=0)))
         velocity = (landmarks - self._landmarks) / (dt * hand_size)
-        velocity_alpha = _smoothing_factor(dt, DERIVATIVE_CUTOFF_HZ)
+        velocity_alpha = _smoothing_factor(dt, SMOOTHING_DERIVATIVE_CUTOFF_HZ)
         self._velocity = velocity_alpha * velocity + (1 - velocity_alpha) * self._velocity
 
         # Each coordinate gets its own cutoff, so a moving fingertip isn't held back by a still wrist
-        alpha = _smoothing_factor(dt, MIN_CUTOFF_HZ + BETA * np.abs(self._velocity))
+        alpha = _smoothing_factor(dt, SMOOTHING_MIN_CUTOFF_HZ + SMOOTHING_BETA * np.abs(self._velocity))
         self._landmarks = alpha * landmarks + (1 - alpha) * self._landmarks
         self._timestamp = timestamp
 

@@ -6,13 +6,13 @@ readme = "README.md"
 authors = [{ name = "darragh0" }, { name = "jjola00" }]
 requires-python = ">=3.13,<3.14"
 dependencies = [
-    "ai-edge-litert>=2.4.0",
-    "numpy>=2.5.5",
-    "opencv-python-headless>=5.1.0.95",
+  "ai-edge-litert>=2.4.0",
+  "numpy>=2.5.5",
+  "opencv-python-headless>=5.1.0.95",
 ]
 
 [project.scripts]
-virtual-whiteboard = "virtual_whiteboard:main"
+virtual-whiteboard = "virtual_whiteboard.app:main"
 
 [build-system]
 requires = ["uv_build>=0.13.9,<0.14.0"]
@@ -27,6 +27,8 @@ ignore = ["reference"]
 reportAny = false
 # picamera2/libcamera are typed by local stubs but only installed on the Pi
 reportMissingModuleSource = false
+# Ignoring a call's return value is routine here (e.g. cv2's drawing functions return the image)
+reportUnusedCallResult = false
 
 [dependency-groups]
 dev = ["basedpyright>=1.40.2", "ruff>=0.17.6"]

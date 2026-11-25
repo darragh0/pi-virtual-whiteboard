@@ -1,0 +1,71 @@
+import argparse
+import time
+from contextlib import closing, suppress
+
+import cv2
+from cv2.typing import MatLike
+
+from virtual_whiteboard.camera import PREFERENCES, PiCamera, Preference
+from virtual_whiteboard.config import STREAM_HOST, STREAM_PORT
+from virtual_whiteboard.hands import HandTracker, TrackResult, draw_hand
+from virtual_whiteboard.smoothing import LandmarkSmoother
+from virtual_whiteboard.stream import MjpegStream
+
+
+class Args(argparse.Namespace):
+    # Class-level defaults double as argparse defaults (it skips attributes already set)
+    prefer: Preference = "quality"
+    debug: bool = False
+
+
+def _parse_args() -> Args:
+    parser = argparse.ArgumentParser(prog="virtual-whiteboard")
+    parser.add_argument(
+        "--prefer",
+        choices=PREFERENCES,
+        help="quality: cleaner image (46 fps camera); speed: grainier, ~5 ms less lag (60 fps camera)",
+    )
+    parser.add_argument("--debug", action="store_true", help="overlay the models' confidence scores")
+    return parser.parse_args(namespace=Args())
+
+
+def _draw_lines(frame: MatLike, *lines: str) -> None:
+    for number, text in enumerate(lines):
+        cv2.putText(frame, text, (10, 30 + 30 * number), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
+
+
+def _debug_lines(result: TrackResult) -> tuple[str, str]:
+    def score(value: float | None) -> str:
+        return "-" if value is None else f"{value:.2f}"
+
+    return f"palm {score(result.palm_score)}", f"presence {score(result.presence)}"
+
+
+def main() -> None:
+    args = _parse_args()
+    tracker = HandTracker()
+    smoother = LandmarkSmoother()
+
+    with (
+        closing(MjpegStream(STREAM_HOST, STREAM_PORT)) as stream,
+        closing(PiCamera(args.prefer)) as camera,
+        suppress(KeyboardInterrupt),
+    ):
+        last = time.perf_counter()
+        while True:
+            frame = camera.capture()
+            captured = time.perf_counter()
+
+            result = tracker.track(frame, captured)
+            if result.landmarks is None:
+                smoother.reset()
+            else:
+                draw_hand(frame, smoother.smooth(result.landmarks, captured))
+
+            lines = [f"{1 / (captured - last):.0f} fps"]
+            if args.debug:
+                lines += _debug_lines(result)
+            _draw_lines(frame, *lines)
+            last = captured
+
+            stream.publish(frame)

@@ -5,13 +5,13 @@ from cv2.typing import MatLike
 from libcamera import Transform, controls
 from picamera2 import Picamera2
 
+from virtual_whiteboard.config import FLICKER_PERIOD_US, FRAME_SIZE, MAX_GAIN
+
 if TYPE_CHECKING:
     from picamera2 import Tuning  # Stub-only alias
 
 type Preference = Literal["quality", "speed"]
 PREFERENCES: Final[tuple[Preference, ...]] = ("quality", "speed")
-
-FRAME_SIZE: Final = (640, 480)
 
 
 @dataclass(frozen=True)
@@ -26,13 +26,6 @@ SENSOR_MODES: Final[dict[Preference, _SensorMode]] = {
     # Skips pixels instead of averaging them: grainier, but ~5 ms less lag
     "speed": _SensorMode((640, 480), 60),
 }
-
-# Mains lighting pulses at twice the 50 Hz grid frequency (Ireland/EU); exposures in multiples of
-# this period stop it showing as bands rolling down the image
-FLICKER_PERIOD_US: Final = 10_000
-# Auto-exposure's gain cap, raised from the default 8 to the sensor's max so fast frames stay bright
-# enough indoors (at the cost of some noise, which denoising and landmark smoothing absorb)
-MAX_GAIN: Final = 16.0
 
 
 def _tuning() -> "Tuning":
