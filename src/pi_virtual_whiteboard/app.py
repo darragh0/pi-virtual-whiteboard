@@ -1,32 +1,15 @@
-import argparse
 import time
 from contextlib import closing, suppress
 
 import cv2
 from cv2.typing import MatLike
 
-from pi_virtual_whiteboard.camera import PREFERENCES, PiCamera, Preference
+from pi_virtual_whiteboard.camera import PiCamera
+from pi_virtual_whiteboard.cli import parse_args
 from pi_virtual_whiteboard.config import STREAM_HOST, STREAM_PORT
 from pi_virtual_whiteboard.hands import HandTracker, draw_hand
 from pi_virtual_whiteboard.smoothing import LandmarkSmoother
 from pi_virtual_whiteboard.stream import FrameServer
-
-
-class Args(argparse.Namespace):
-    # Class-level defaults double as argparse defaults (it skips attributes already set)
-    prefer: Preference = "quality"
-    debug: bool = False
-
-
-def _parse_args() -> Args:
-    parser = argparse.ArgumentParser(prog="pi-virtual-whiteboard")
-    parser.add_argument(
-        "--prefer",
-        choices=PREFERENCES,
-        help="quality: cleaner image (46 fps camera); speed: grainier, ~5 ms less lag (60 fps camera)",
-    )
-    parser.add_argument("--debug", action="store_true", help="overlay the models' confidence scores")
-    return parser.parse_args(namespace=Args())
 
 
 def _draw_lines(frame: MatLike, *lines: str) -> None:
@@ -39,8 +22,8 @@ def _score(value: float | None) -> str:
 
 
 def main() -> None:
-    args = _parse_args()
-    tracker = HandTracker()
+    args = parse_args()
+    tracker = HandTracker(args.hand)
     smoother = LandmarkSmoother()
 
     with (
@@ -61,7 +44,11 @@ def main() -> None:
 
             lines = [f"{1 / (captured - last):.0f} fps"]
             if args.debug:
-                lines += [f"palm {_score(result.palm_score)}", f"presence {_score(result.presence)}"]
+                lines += [
+                    f"palm {_score(result.palm_score)}",
+                    f"presence {_score(result.presence)}",
+                    f"hand {result.hand or '-'}",
+                ]
             _draw_lines(frame, *lines)
             last = captured
 

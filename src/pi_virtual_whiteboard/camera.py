@@ -1,16 +1,14 @@
-from typing import TYPE_CHECKING, Final, Literal, final
+from typing import TYPE_CHECKING, Final, final
 
 from cv2.typing import MatLike
 from libcamera import Transform, controls
 from picamera2 import Picamera2
 
+from pi_virtual_whiteboard.cli import Preference
 from pi_virtual_whiteboard.config import FLICKER_PERIOD_US, FRAME_SIZE, MAX_GAIN
 
 if TYPE_CHECKING:
     from picamera2 import Tuning  # Stub-only alias
-
-type Preference = Literal["quality", "speed"]
-PREFERENCES: Final[tuple[Preference, ...]] = ("quality", "speed")
 
 
 # Sensor size and its max fps (less time between frames means less lag and motion blur)

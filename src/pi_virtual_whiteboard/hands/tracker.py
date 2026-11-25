@@ -13,6 +13,7 @@ import cv2
 import numpy as np
 from cv2.typing import MatLike
 
+from pi_virtual_whiteboard.cli import Hand
 from pi_virtual_whiteboard.config import LANDMARK_MODEL, MIN_HAND_PRESENCE, MIN_PALM_SCORE, PALM_MODEL
 from pi_virtual_whiteboard.hands.landmarks import HandLandmark
 from pi_virtual_whiteboard.hands.model import Model
@@ -41,12 +42,17 @@ PALM_KEYPOINT_WRIST: Final = 0
 PALM_KEYPOINT_MIDDLE_FINGER_BASE: Final = 2
 
 
+MAX_PALMS: Final = 2  # With both hands in view, the second palm is tried when the first is the wrong hand
+
+
 @dataclass(frozen=True)
 class TrackResult:
     landmarks: Points | None
     """The hand's 21 landmarks in frame pixels, or None if no hand is visible."""
+    hand: Hand | None = None
+    """Which hand it is."""
     palm_score: float | None = None
-    """Palm detector confidence, or None if it didn't need to run."""
+    """Best palm detector confidence, or None if it didn't need to run."""
     presence: float | None = None
     """Landmark model's confidence that its crop holds a hand."""
 
@@ -81,9 +87,10 @@ def _roi_from_landmarks(landmarks: Points) -> Roi:
 
 @final
 class HandTracker:
-    """Tracks one hand across video frames."""
+    """Tracks one hand across video frames: the given one, or any if `hand` is None."""
 
-    def __init__(self) -> None:
+    def __init__(self, hand: Hand | None = None) -> None:
+        self._hand = hand
         self._palm_model = Model(PALM_MODEL)
         self._landmark_model = Model(LANDMARK_MODEL)
         self._anchors = _palm_anchors()
@@ -93,32 +100,35 @@ class HandTracker:
 
     def track(self, frame_bgr: MatLike, timestamp: float) -> TrackResult:
         """Find the hand in a frame captured at `timestamp` seconds (used to predict where a moving hand went)."""
-        landmarks = presence = palm_score = None
+        found = presence = palm_score = None
         if self._roi is not None:
             # Look where the hand should be now if it kept moving at the same speed
             predicted = replace(self._roi, centre=self._roi.centre + self._velocity * (timestamp - self._timestamp))
-            landmarks, presence = self._detect_landmarks(frame_bgr, predicted)
+            # No handedness check while following: a wavering guess mid-track would just drop the hand
+            found, presence = self._detect_landmarks(frame_bgr, predicted, check_hand=False)
 
-        if landmarks is None:
+        if found is None:
             # Lost (or never had) the hand: search the whole frame
             self._roi, self._velocity = None, np.zeros(2)
-            palm, palm_score = self._detect_palm(frame_bgr)
+            palms, palm_score = self._detect_palms(frame_bgr)
+            for palm in palms:
+                found, presence = self._detect_landmarks(frame_bgr, palm, check_hand=True)
+                if found is not None:
+                    break
 
-            if palm is not None:
-                landmarks, presence = self._detect_landmarks(frame_bgr, palm)
+        if found is None:
+            return TrackResult(None, None, palm_score, presence)
 
-        if landmarks is None:
-            return TrackResult(None, palm_score, presence)
-
+        landmarks, hand = found
         roi = _roi_from_landmarks(landmarks)
         if self._roi is not None and timestamp > self._timestamp:
             self._velocity = (roi.centre - self._roi.centre) / (timestamp - self._timestamp)
 
         self._roi, self._timestamp = roi, timestamp
-        return TrackResult(landmarks, palm_score, presence)
+        return TrackResult(landmarks, hand, palm_score, presence)
 
-    def _detect_palm(self, frame_bgr: MatLike) -> tuple[Roi | None, float]:
-        """Return a crop around the most likely palm (None if not likely enough) and its score."""
+    def _detect_palms(self, frame_bgr: MatLike) -> tuple[list[Roi], float]:
+        """Return crops around the likeliest palms (best first, up to MAX_PALMS) and the best palm score."""
 
         # Letterbox to a square so the detector sees undistorted proportions
         height, width = frame_bgr.shape[:2]
@@ -127,26 +137,33 @@ class HandTracker:
         square = cv2.copyMakeBorder(frame_bgr, top, side - height - top, left, side - width - left, cv2.BORDER_CONSTANT)
         boxes, scores = self._palm_model.run(cv2.resize(square, (PALM_INPUT_SIZE, PALM_INPUT_SIZE)))
 
-        best = int(np.argmax(scores))
-        score = _sigmoid(float(scores[best, 0]))
-        if score < MIN_PALM_SCORE:
-            return None, score
+        order = np.argsort(scores[:, 0])[::-1]
+        palms: list[Roi] = []
+        for index in order:
+            if _sigmoid(float(scores[index, 0])) < MIN_PALM_SCORE or len(palms) == MAX_PALMS:
+                break
 
-        # Box: centre offset from its anchor, size, then 7 keypoint offsets, all in input pixels
-        box = boxes[best].reshape(-1, 2) / PALM_INPUT_SIZE
-        anchor = self._anchors[best]
-        to_frame = np.array([left, top])
-        centre = (box[0] + anchor) * side - to_frame
-        box_width, box_height = box[1] * side
-        keypoints = (box[2:] + anchor) * side - to_frame
+            # Box: centre offset from its anchor, size, then 7 keypoint offsets, all in input pixels
+            box = boxes[index].reshape(-1, 2) / PALM_INPUT_SIZE
+            anchor = self._anchors[index]
+            to_frame = np.array([left, top])
+            centre = (box[0] + anchor) * side - to_frame
+            box_width, box_height = box[1] * side
+            keypoints = (box[2:] + anchor) * side - to_frame
 
-        angle = angle_towards(keypoints[PALM_KEYPOINT_WRIST], keypoints[PALM_KEYPOINT_MIDDLE_FINGER_BASE])
-        roi = Roi.around(centre, float(box_width), float(box_height), angle, PALM_ROI_SCALE, PALM_ROI_SHIFT)
+            angle = angle_towards(keypoints[PALM_KEYPOINT_WRIST], keypoints[PALM_KEYPOINT_MIDDLE_FINGER_BASE])
+            roi = Roi.around(centre, float(box_width), float(box_height), angle, PALM_ROI_SCALE, PALM_ROI_SHIFT)
 
-        return roi, score
+            # Neighbouring anchors fire for the same palm: skip detections centred on one already kept
+            if all(np.linalg.norm(roi.centre - kept.centre) > kept.size / 2 for kept in palms):
+                palms.append(roi)
 
-    def _detect_landmarks(self, frame_bgr: MatLike, roi: Roi) -> tuple[Points | None, float]:
-        """Return the landmarks of the hand inside `roi` (None if there's no hand there) and the presence score."""
+        return palms, _sigmoid(float(scores[order[0], 0]))
+
+    def _detect_landmarks(
+        self, frame_bgr: MatLike, roi: Roi, *, check_hand: bool
+    ) -> tuple[tuple[Points, Hand] | None, float]:
+        """Return the hand inside `roi` (None if absent, or the wrong hand when `check_hand`) and its presence."""
         crop_to_frame = roi.crop_to_frame(LANDMARK_INPUT_SIZE)
         crop = cv2.warpAffine(
             frame_bgr,
@@ -155,10 +172,12 @@ class HandTracker:
             flags=cv2.INTER_LINEAR | cv2.WARP_INVERSE_MAP,
         )
 
-        landmarks_crop, presence, _handedness, _world_landmarks = self._landmark_model.run(crop)
+        landmarks_crop, presence, left_hand, _world_landmarks = self._landmark_model.run(crop)
+        # The model's handedness assumes a mirrored (selfie-view) image, which is what our camera gives
+        hand: Hand = "left" if left_hand[0] > 0.5 else "right"  # noqa: PLR2004 -- a probability
         score = float(presence[0])
-        if score < MIN_HAND_PRESENCE:
+        if score < MIN_HAND_PRESENCE or (check_hand and self._hand is not None and hand != self._hand):
             return None, score
 
         landmarks_px = landmarks_crop.reshape(21, 3)[:, :2]  # Drop depth
-        return landmarks_px @ crop_to_frame[:, :2].T + crop_to_frame[:, 2], score
+        return (landmarks_px @ crop_to_frame[:, :2].T + crop_to_frame[:, 2], hand), score

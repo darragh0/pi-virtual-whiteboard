@@ -21,6 +21,7 @@ From the laptop (the Pi is reached over SSH as `dar@rpi`; override with `PI_HOST
 scripts/pi.py run                 # sync + run on the Pi, view at http://localhost:8000/
 scripts/pi.py run --debug         # same, with model confidence scores on screen
 scripts/pi.py run --prefer speed  # grainier image, ~5 ms less lag
+scripts/pi.py run --hand right    # only track your right hand (or left)
 ```
 
 ### On a monitor plugged into the Pi
