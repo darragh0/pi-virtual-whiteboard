@@ -38,7 +38,10 @@ export class Hud {
         this.#ring(x, y, cursor.width * h * 0.5 + 0.006 * h, "#000a");
         this.#dot(x, y, cursor.width * h * 0.5, cursor.colour);
         break;
-      case "move":
+      case "move": // A ring on the fingertip, outlined so it shows on any background
+        context.lineWidth = 0.009 * h;
+        this.#ring(x, y, 0.014 * h, "#000a");
+        context.lineWidth = 0.005 * h;
         this.#ring(x, y, 0.014 * h, cursor.colour);
         break;
       case "eraser":
@@ -67,7 +70,10 @@ export class Hud {
     this.#toast.textContent = text;
     flash(this.#toast);
     clearTimeout(this.#toastTimer);
-    this.#toastTimer = setTimeout(() => (this.#toast.textContent = ""), TOAST_MS);
+    this.#toastTimer = setTimeout(
+      () => (this.#toast.textContent = ""),
+      TOAST_MS,
+    );
   }
 }
 

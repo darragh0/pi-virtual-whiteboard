@@ -13,23 +13,23 @@ from typing import Final, final
 from pi_virtual_whiteboard.config import (
     EXTENDED_RATIO,
     GESTURE_HOLD_S,
-    PINCH_RATIO,
-    PINCH_REACH_RATIO,
-    PINCH_RELEASE_RATIO,
+    INDEX_DOWN_RATIO,
+    THUMB_OUT_RATIO,
+    THUMB_TUCKED_RATIO,
 )
 from pi_virtual_whiteboard.hands.landmarks import HandLandmark
 from pi_virtual_whiteboard.hands.roi import Points
 
 
 class Gesture(StrEnum):
-    DRAW = "draw"  # Thumb and index fingertips pinched together, like holding a pen: the pen is down
-    ERASE = "erase"  # Open palm: a wide eraser
-    NONE = "none"  # Anything else, or no hand: the cursor just moves
+    DRAW = "draw"  # Pointing with the thumb tucked in, like pulling a finger gun's trigger: pen down at the index tip
+    ERASE = "erase"  # Open palm (all four fingers up): a wide eraser under the palm
+    NONE = "none"  # Thumb out, index finger down (e.g. a fist), or no hand: the cursor just moves
 
 
 _L = HandLandmark
 
-# Each finger's middle joint and tip (the thumb isn't counted: it barely moves between these gestures)
+# Each finger's middle joint and tip (the thumb is measured on its own: see HandShape.thumb)
 _FINGERS: Final = (
     (_L.INDEX_FINGER_PIP, _L.INDEX_FINGER_TIP),
     (_L.MIDDLE_FINGER_PIP, _L.MIDDLE_FINGER_TIP),
@@ -45,15 +45,12 @@ class HandShape:
 
     fingers: tuple[float, ...]
     """Index, middle, ring, pinky: tip's distance from the wrist over the middle joint's (vs EXTENDED_RATIO)."""
-    pinch: float
-    """Thumb tip to index tip, in palm lengths (vs PINCH_RATIO)."""
-    reach: float
-    """Index tip's distance from the wrist over its knuckle's (vs PINCH_REACH_RATIO)."""
+    thumb: float
+    """Thumb tip to the middle finger's middle joint, in palm lengths (vs THUMB_TUCKED_RATIO and THUMB_OUT_RATIO)."""
 
-    def describe(self) -> tuple[str, str]:
-        """Two short lines of the measurements, for the --debug overlay."""
-        fingers = " ".join(f"{ratio:.2f}" for ratio in self.fingers)
-        return f"fingers {fingers}", f"pinch {self.pinch:.2f} reach {self.reach:.2f}"
+    def describe(self) -> str:
+        """Describe the measurements in one short line, for the --debug readout."""
+        return "fingers " + " ".join(f"{ratio:.2f}" for ratio in self.fingers) + f" thumb {self.thumb:.2f}"
 
 
 def measure(world_landmarks: Points) -> HandShape:
@@ -66,23 +63,19 @@ def measure(world_landmarks: Points) -> HandShape:
     return HandShape(
         # A straight finger's tip is well past its middle joint, seen from the wrist; a curled one's is not
         fingers=tuple(distance(_L.WRIST, tip) / distance(_L.WRIST, pip) for pip, tip in _FINGERS),
-        pinch=distance(_L.THUMB_TIP, _L.INDEX_FINGER_TIP) / palm,
-        reach=distance(_L.WRIST, _L.INDEX_FINGER_TIP) / distance(_L.WRIST, _L.INDEX_FINGER_MCP),
+        thumb=distance(_L.THUMB_TIP, _L.MIDDLE_FINGER_PIP) / palm,
     )
 
 
 def classify(shape: HandShape, *, drawing: bool) -> Gesture:
     """Read the gesture a hand is making in one frame. `drawing`: whether the pen is down at the moment."""
-    # Letting go takes the tips further apart than pinching did, so a pinch loosening mid-stroke doesn't lift the pen.
-    # In a fist the thumb also rests near the index tip, but there the tip is curled back to the knuckles
-    pinch_limit = PINCH_RELEASE_RATIO if drawing else PINCH_RATIO
-    if shape.pinch < pinch_limit and shape.reach > PINCH_REACH_RATIO:
-        return Gesture.DRAW
-
     if all(ratio > EXTENDED_RATIO for ratio in shape.fingers):
         return Gesture.ERASE
-
-    return Gesture.NONE
+    # Only a pointing finger draws: a fist's thumb is tucked in too
+    if shape.fingers[0] < (INDEX_DOWN_RATIO if drawing else EXTENDED_RATIO):
+        return Gesture.NONE
+    # The trigger moves only the thumb, not the index tip: the pen goes down and up without a stray mark
+    return Gesture.DRAW if shape.thumb < (THUMB_OUT_RATIO if drawing else THUMB_TUCKED_RATIO) else Gesture.NONE
 
 
 @final

@@ -4,7 +4,13 @@ from typing import Final
 import numpy as np
 import pytest
 
-from pi_virtual_whiteboard.config import GESTURE_HOLD_S, PINCH_RATIO, PINCH_RELEASE_RATIO
+from pi_virtual_whiteboard.config import (
+    EXTENDED_RATIO,
+    GESTURE_HOLD_S,
+    INDEX_DOWN_RATIO,
+    THUMB_OUT_RATIO,
+    THUMB_TUCKED_RATIO,
+)
 from pi_virtual_whiteboard.hands import Gesture, GestureFilter, HandLandmark, HandShape, Points, classify, measure
 
 _L = HandLandmark
@@ -19,10 +25,9 @@ _KNUCKLES: Final = {
 # Each joint's offset from the one before (PIP, DIP, tip)
 _STRAIGHT: Final = ((0, -0.45), (0, -0.28), (0, -0.22))
 _CURLED: Final = ((0, -0.35), (0, 0.2), (0, 0.25))  # Folds back down towards the palm
-_HOOKED: Final = ((0, -0.4), (0.1, -0.15), (0.15, 0))  # Index bent over to meet the thumb
 
 
-def _hand(*fingers_up: bool, pinch: bool = False) -> Points:
+def _hand(*fingers_up: bool, thumb_out: bool = False) -> Points:
     """Build a flat synthetic right hand in palm lengths, with index, middle, ring and pinky up or curled."""
     points = np.zeros((21, 2))
     points[_L.THUMB_CMC], points[_L.THUMB_MCP], points[_L.THUMB_IP] = (-0.25, -0.15), (-0.45, -0.35), (-0.6, -0.55)
@@ -31,15 +36,17 @@ def _hand(*fingers_up: bool, pinch: bool = False) -> Points:
     for (knuckle, start), up in zip(_KNUCKLES.items(), fingers_up, strict=True):
         joint = np.array(start)
         points[knuckle] = joint
-        bends = _HOOKED if pinch and knuckle == _L.INDEX_FINGER_MCP else _STRAIGHT if up else _CURLED
+        bends = _STRAIGHT if up else _CURLED
         for offset, step in enumerate(bends, start=1):
             joint = joint + step
             points[knuckle + offset] = joint
 
-    if pinch:
-        points[_L.THUMB_TIP] = points[_L.INDEX_FINGER_TIP] + (-0.05, 0.05)
+    if thumb_out:
+        points[_L.THUMB_TIP] = (-0.95, -0.5)  # Sticking out sideways, like a finger gun's cocked thumb
     elif not any(fingers_up):
         points[_L.THUMB_TIP] = points[_L.INDEX_FINGER_TIP] + (0.05, 0.05)  # A fist's thumb wraps over the fingers
+    else:
+        points[_L.THUMB_TIP] = (-0.15, -1.25)  # Tucked in against the curled middle finger
     return np.column_stack([points, np.zeros(21)])
 
 
@@ -56,15 +63,11 @@ def _posed(hand: Points, spin: float, tilt: float, palm: float) -> Points:
 
 
 HANDS: Final = {
-    "pinch": (_hand(False, False, False, False, pinch=True), Gesture.DRAW),
+    "pointing, thumb tucked in": (_hand(True, False, False, False), Gesture.DRAW),
+    "pointing, thumb out": (_hand(True, False, False, False, thumb_out=True), Gesture.NONE),
     "open palm": (_hand(True, True, True, True), Gesture.ERASE),
-    "pointing": (_hand(True, False, False, False), Gesture.NONE),
-    "two fingers": (_hand(True, True, False, False), Gesture.NONE),
+    "fist": (_hand(False, False, False, False), Gesture.NONE),  # Its thumb is tucked in too, but it isn't pointing
 }
-
-
-# A fist rests its thumb near the index tip, like a pinch: it must not draw
-_FIST: Final = _hand(False, False, False, False)
 
 
 @pytest.mark.parametrize("name", HANDS)
@@ -107,13 +110,13 @@ def test_filter_keeps_the_pen_down_through_a_brief_dropout() -> None:
     assert gestures.update(Gesture.DRAW, 1.0 + GESTURE_HOLD_S) == Gesture.DRAW
 
 
-@pytest.mark.parametrize("spin", [0, 45, 180])
-@pytest.mark.parametrize("tilt", [0, 60, 85])
-def test_classify_does_not_read_a_fist_as_a_pinch(spin: float, tilt: float) -> None:
-    assert classify(measure(_posed(_FIST, spin, tilt, 0.08)), drawing=False) == Gesture.NONE
+def test_a_drifting_thumb_keeps_the_pen_down() -> None:
+    drifting = HandShape(fingers=(1.4, 0.8, 0.8, 0.8), thumb=(THUMB_TUCKED_RATIO + THUMB_OUT_RATIO) / 2)
+    assert classify(drifting, drawing=False) == Gesture.NONE  # Not tucked enough to start drawing...
+    assert classify(drifting, drawing=True) == Gesture.DRAW  # ...but not out enough to stop
 
 
-def test_a_loosening_pinch_keeps_the_pen_down() -> None:
-    loose = HandShape(fingers=(0.8, 0.8, 0.8, 0.8), pinch=(PINCH_RATIO + PINCH_RELEASE_RATIO) / 2, reach=1.5)
-    assert classify(loose, drawing=False) == Gesture.NONE  # Too loose to start drawing...
-    assert classify(loose, drawing=True) == Gesture.DRAW  # ...but not to stop
+def test_a_slightly_bent_index_keeps_the_pen_down() -> None:
+    bent = HandShape(fingers=((INDEX_DOWN_RATIO + EXTENDED_RATIO) / 2, 0.8, 0.8, 0.8), thumb=0.3)
+    assert classify(bent, drawing=False) == Gesture.NONE  # Too bent to start drawing...
+    assert classify(bent, drawing=True) == Gesture.DRAW  # ...but not to stop

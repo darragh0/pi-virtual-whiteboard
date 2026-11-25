@@ -65,6 +65,35 @@ body {
   opacity: 0;
 }
 
+/* --debug readout */
+/* Top left: the video's fps, and with --debug the tracking's readout below it */
+#readout {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  font:
+    2.2cqh / 1.35 ui-monospace,
+    monospace;
+}
+
+#fps,
+#debug {
+  width: fit-content;
+  margin: 0;
+  padding: 0.6cqh 1.2cqh;
+  background: rgb(0 0 0 / 0.6);
+  font: inherit;
+}
+
+#fps {
+  color: var(--text);
+}
+
+#debug {
+  color: #39ff14;
+}
+
 /* Messages, e.g. after undo or saving */
 #toast {
   position: absolute;
@@ -140,8 +169,21 @@ h2 {
   color: var(--muted);
 }
 
-#gestures li span {
+/* Hand icons: silhouettes in the text's colour */
+#gestures .hand {
+  width: 18px;
+  height: 18px;
   margin-right: 4px;
+  vertical-align: -3px;
+  fill: currentColor;
+}
+
+/* How to make each gesture, under its name */
+#gestures li small {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 11px;
 }
 
 #gestures li.active {

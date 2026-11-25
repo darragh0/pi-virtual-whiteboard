@@ -30,4 +30,4 @@ def open_camera(args: Args) -> Camera:
     os.environ.setdefault("LIBCAMERA_LOG_LEVELS", "WARN")  # Its INFO logs are noise; read when it's imported
     from pi_virtual_whiteboard.camera.pi import PiCamera  # noqa: PLC0415
 
-    return PiCamera(args.prefer)
+    return PiCamera()

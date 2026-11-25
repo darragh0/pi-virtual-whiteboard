@@ -76,8 +76,7 @@ def run(app_args: Sequence[str]) -> None:
     port = int(_app_module("config").STREAM_PORT)
 
     sync()
-    step(f"Running on the Pi {_style('2', '(Ctrl+C to stop)')}")
-    ok(f"View at {_style('1;36', f'http://localhost:{port}/')}")
+    step("Running on the Pi")
 
     app = shlex.join([".venv/bin/pi-virtual-whiteboard", *app_args])
     command = f"{app} 2> >(grep --line-buffered -vE '{LOG_NOISE}' >&2)"
@@ -130,7 +129,7 @@ def main() -> None:
     )
     args, app_args = parser.parse_known_args(namespace=Args())
     if ON_PI:
-        parser.error("this is the Pi, so run the app directly: uv run --no-dev main --hand right")
+        parser.error("this is the Pi, so run the app directly: uv run --no-dev main --hand right --mode thumb")
 
     match args.command:
         case "sync" if app_args:

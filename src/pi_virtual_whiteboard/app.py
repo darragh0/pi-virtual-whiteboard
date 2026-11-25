@@ -1,44 +1,69 @@
 import json
+import os
+import sys
 import time
 from contextlib import closing, suppress
 from typing import Final
 
-import cv2
 import numpy as np
 from cv2.typing import MatLike
 
 from pi_virtual_whiteboard.camera import open_camera
-from pi_virtual_whiteboard.cli import Hand, parse_args
+from pi_virtual_whiteboard.cli import Hand, Mode, parse_args
 from pi_virtual_whiteboard.config import STREAM_HOST, STREAM_PORT
-from pi_virtual_whiteboard.hands import Gesture, GestureFilter, HandTracker, Points, classify, draw_hand, measure
+from pi_virtual_whiteboard.hands import (
+    Gesture,
+    GestureFilter,
+    HandTracker,
+    Points,
+    classify,
+    draw_hand,
+    measure,
+)
 from pi_virtual_whiteboard.smoothing import LandmarkSmoother
 from pi_virtual_whiteboard.stream import FrameServer
 
-NEON_GREEN: Final = (20, 255, 57)  # BGR
+# Colour only on a terminal, and never when NO_COLOR is set (https://no-color.org)
+_COLOUR: Final = sys.stdout.isatty() and "NO_COLOR" not in os.environ
 
 
-def _draw_lines(frame: MatLike, *lines: str) -> None:
-    # A black outline keeps the text sharp: JPEG stores colour at half resolution, which blurs coloured text alone
-    for number, text in enumerate(lines):
-        origin = (8, 20 + 18 * number)
-        for colour, thickness in (((0, 0, 0), 3), (NEON_GREEN, 1)):
-            cv2.putText(frame, text, origin, cv2.FONT_HERSHEY_SIMPLEX, 0.5, colour, thickness, cv2.LINE_AA)
+def _style(code: str, text: str) -> str:
+    return f"\033[{code}m{text}\033[0m" if _COLOUR else text
 
 
 def _score(value: float | None) -> str:
     return "-" if value is None else f"{value:.2f}"
 
 
-def _hand_json(frame: MatLike, landmarks: Points | None, hand: Hand | None, gesture: Gesture) -> str:
+def _hand_json(
+    frame: MatLike,
+    landmarks: Points | None,
+    hand: Hand | None,
+    gesture: Gesture,
+    *,
+    mode: Mode,
+    fps: int,
+    debug: list[str] | None,
+) -> str:
     """Describe the hand for the browser: its landmarks in 0..1 of the frame's size, so any view size works.
 
-    The gesture is sent even while the hand is lost, as it outlasts a brief dropout.
+    The gesture is sent even while the hand is lost, as it outlasts a brief dropout. `mode`: --mode. `fps`: frames
+    tracked per second. `debug`: lines for --debug, shown by the browser as text (sharper than text drawn on the
+    frame, which the JPEG and scaling blur)
     """
     normalised = None
     if landmarks is not None:
         height, width = frame.shape[:2]
         normalised = np.round(landmarks / (width, height), 4).tolist()  # 4 places: finer than a pixel, yet short
-    return json.dumps({"hand": hand, "gesture": gesture, "landmarks": normalised}, separators=(",", ":"))
+    fields = {
+        "mode": mode,
+        "fps": fps,
+        "hand": hand,
+        "gesture": gesture,
+        "landmarks": normalised,
+        "debug": debug,
+    }
+    return json.dumps(fields, separators=(",", ":"))
 
 
 def main() -> None:
@@ -53,7 +78,10 @@ def main() -> None:
         closing(open_camera(args)) as camera,
         suppress(KeyboardInterrupt),
     ):
-        last = time.perf_counter()
+        url = f"http://localhost:{STREAM_PORT}/"
+        print(f"{_style('32', '✓')} View at {_style('1;36', url)} {_style('2', '(Ctrl+C to stop)')}", flush=True)
+
+        last, fps = time.perf_counter(), 0.0
         while True:
             frame = camera.capture()
             captured, captured_wall = time.perf_counter(), time.time()
@@ -71,20 +99,27 @@ def main() -> None:
                 # Smoothed too: jitter near a threshold would otherwise flip the reading
                 world_landmarks = world_smoother.smooth(result.world_landmarks, captured)
                 shape = measure(world_landmarks)
-                gesture = gestures.update(classify(shape, drawing=gestures.current == Gesture.DRAW), captured)
+                reading = classify(shape, drawing=gestures.current == Gesture.DRAW)
+                if args.mode == "space" and reading == Gesture.DRAW:
+                    reading = Gesture.NONE  # Space is the pen instead (in the browser)
+                gesture = gestures.update(reading, captured)
 
             if landmarks is not None and (args.skeleton or args.debug):
                 draw_hand(frame, landmarks)
+            debug = None
             if args.debug:
-                _draw_lines(
-                    frame,
-                    f"{1 / (captured - last):.0f} fps",
+                debug = [
                     f"palm {_score(result.palm_score)}",
                     f"presence {_score(result.presence)}",
                     f"hand {result.hand or '-'}",
                     f"gesture {gesture}",
-                    *(shape.describe() if shape else ()),
-                )
+                    *([shape.describe()] if shape else []),
+                ]
+            fps = 0.9 * fps + 0.1 / (captured - last)  # Smoothed, so the number doesn't flicker
             last = captured
 
-            stream.publish(frame, captured_wall, _hand_json(frame, landmarks, result.hand, gesture))
+            stream.publish(
+                frame,
+                captured_wall,
+                _hand_json(frame, landmarks, result.hand, gesture, mode=args.mode, fps=round(fps), debug=debug),
+            )

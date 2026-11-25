@@ -5,7 +5,7 @@ import { COLOURS, Controls } from "./controls.js";
 import { Hud } from "./hud.js";
 import { streamFrames } from "./stream.js";
 
-const VIEWS = ["dim", "camera", "board"]; // Behind the ink: the video dimmed, as is, or hidden
+const VIEWS = ["camera", "dim", "board"]; // Behind the ink: the video as is, dimmed, or hidden
 const SAVE_BACKGROUND = "#000";
 
 const element = (id) => document.getElementById(id);
@@ -18,6 +18,11 @@ const hud = new Hud({ cursor: element("cursor"), toast: element("toast") });
 const controls = new Controls(board, hud);
 const gestureChips = document.querySelectorAll("#gestures [data-gesture]");
 
+// How to draw and move, per --mode (shown under the toolbar's gestures)
+const HINTS = {
+  thumb: { draw: "Point, thumb tucked in", move: "Thumb out" },
+  space: { draw: "Hold Space", move: "Let go of Space" },
+};
 // One swatch per colour, numbered like its key
 const swatches = COLOURS.map((colour, index) => {
   const swatch = document.createElement("button");
@@ -45,8 +50,16 @@ function onFrame(hand) {
   );
   controls.update(hand, performance.now());
 
+  for (const hint of document.querySelectorAll("[data-hint]"))
+    hint.textContent = HINTS[hand.mode][hint.dataset.hint];
+
+  element("fps").textContent = `${hand.fps} fps`; // The Pi's video: frames tracked per second
+  const debug = element("debug"); // Sent only with --debug
+  debug.hidden = hand.debug === null;
+  if (hand.debug !== null) debug.textContent = hand.debug.join("\n");
+
   for (const chip of gestureChips)
-    chip.classList.toggle("active", chip.dataset.gesture === hand.gesture);
+    chip.classList.toggle("active", chip.dataset.gesture === controls.gesture);
 }
 
 // The drawing as a PNG, on the board's background (the video isn't included)
@@ -65,9 +78,7 @@ function save() {
   hud.toast("Saved");
 }
 
-// Asks first: there's no gesture for it, so it's never an accident, but it wipes everything at once
 function clear() {
-  if (!window.confirm("Clear the board?")) return;
   hud.toast(board.clear() ? "Board cleared · Z to undo" : "Nothing to clear");
 }
 
@@ -87,6 +98,19 @@ const KEYS = {
 };
 
 COLOURS.forEach((_, index) => (KEYS[index + 1] = () => pickColour(index)));
+
+// Space mode's pen (preventDefault: Space would otherwise scroll, or press a focused button)
+for (const [type, held] of [
+  ["keydown", true],
+  ["keyup", false],
+]) {
+  document.addEventListener(type, (event) => {
+    if (event.key !== " ") return;
+    event.preventDefault();
+    controls.spaceHeld = held;
+  });
+}
+window.addEventListener("blur", () => (controls.spaceHeld = false)); // Its keyup would go to another window
 
 document.addEventListener("keydown", (event) => {
   if (event.ctrlKey || event.metaKey || event.altKey) return; // Leave the browser's own shortcuts alone

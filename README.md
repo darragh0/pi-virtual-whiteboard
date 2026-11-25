@@ -18,13 +18,14 @@
 From the laptop (the Pi is reached over SSH as `dar@rpi`; override with `PI_HOST`):
 
 ```sh
-scripts/pi.py run --hand right                        # sync + run on the Pi, view at http://localhost:8000/
-scripts/pi.py run --hand right --skeleton             # same, with the hand's skeleton on the video
-scripts/pi.py run --hand right --debug                # skeleton, plus model confidence scores on screen
-scripts/pi.py run --hand right --prefer sharp-motion  # less motion blur, but darker and grainier
+scripts/pi.py run --hand right --mode thumb             # sync + run on the Pi, view at http://localhost:8000/
+scripts/pi.py run --hand right --mode space             # same, but hold Space to draw
+scripts/pi.py run --hand right --mode thumb --skeleton  # with the hand's skeleton on the video
+scripts/pi.py run --hand right --mode thumb --debug     # skeleton, plus model confidence scores on screen
 ```
 
-`--hand` (`left` or `right`) is the hand you draw with; only that hand is tracked.
+`--hand` (`left` or `right`) is the hand you draw with; only that hand is tracked. `--mode` is what puts the pen
+down: `thumb` or `space` (see [Gestures](#gestures)).
 
 ### On a monitor plugged into the Pi
 
@@ -32,7 +33,7 @@ Once the code is on the Pi (`scripts/pi.py sync` from the laptop), in a terminal
 
 ```sh
 cd ~/pi-virtual-whiteboard
-uv run --no-dev main --hand right   # same options as above; --no-dev skips the dev tools
+uv run --no-dev main --hand right --mode thumb   # same options as above; --no-dev skips the dev tools
 ```
 
 Then open http://localhost:8000/ in the Pi's browser (F11 for fullscreen). The browser shares the
@@ -43,20 +44,20 @@ Pi's CPU with the tracking, so expect a few fps less than viewing from the lapto
 The same app runs on a laptop's webcam, to develop without the Pi at hand:
 
 ```sh
-uv run main --hand right   # view at http://localhost:8000/; --webcam N for /dev/videoN
+uv run main --hand right --mode thumb   # view at http://localhost:8000/; --webcam N for /dev/videoN
 ```
 
 ## Gestures
 
-| Gesture       | Does                                                      |
-| ------------- | --------------------------------------------------------- |
-| Pinch         | Draw, like holding a pen: thumb and index fingertips meet |
-| Open palm     | Erase under the palm                                      |
-| Anything else | Move without drawing                                      |
+| `--mode thumb`         | `--mode space`             | Does                        |
+| ---------------------- | -------------------------- | --------------------------- |
+| Point, thumb tucked in | Hold <kbd>Space</kbd>      | Draw at the index fingertip |
+| Thumb out              | Let go of <kbd>Space</kbd> | Move without drawing        |
+| Open palm              | Open palm                  | Erase under the palm        |
 
 Keys, each also a button below the board: <kbd>1</kbd>-<kbd>7</kbd> colour, <kbd>Z</kbd> undo, <kbd>Y</kbd> redo,
-<kbd>S</kbd> save the drawing as a PNG, <kbd>V</kbd> cycle the view behind the ink (dimmed video, video, board only),
-<kbd>C</kbd> clear (asks first).
+<kbd>S</kbd> save the drawing as a PNG, <kbd>V</kbd> cycle the view behind the ink (video, dimmed video, board only),
+<kbd>C</kbd> clear (undoable).
 
 Gestures are read from the model's 3D landmarks, so they work whichever way the hand faces; the thresholds are in
 `config.py`. Run with `--debug` to see the skeleton, the gesture being read and the measurements behind it.

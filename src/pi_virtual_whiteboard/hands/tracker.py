@@ -14,7 +14,13 @@ import numpy as np
 from cv2.typing import MatLike
 
 from pi_virtual_whiteboard.cli import Hand
-from pi_virtual_whiteboard.config import LANDMARK_MODEL, MIN_HAND_PRESENCE, MIN_PALM_SCORE, PALM_MODEL
+from pi_virtual_whiteboard.config import (
+    LANDMARK_MODEL,
+    MIN_HAND_PRESENCE,
+    MIN_PALM_SCORE,
+    PALM_MODEL,
+    REACQUIRE_SCALE,
+)
 from pi_virtual_whiteboard.hands.landmarks import HandLandmark
 from pi_virtual_whiteboard.hands.model import Model
 from pi_virtual_whiteboard.hands.roi import Points, Roi, angle_towards, rotation
@@ -27,6 +33,9 @@ PALM_ROI_SCALE: Final = 2.6
 PALM_ROI_SHIFT: Final = -0.5
 LANDMARK_ROI_SCALE: Final = 2.0
 LANDMARK_ROI_SHIFT: Final = -0.1
+# Changes in the crop's angle and size smaller than these are ignored (see _steadied)
+ROI_ANGLE_DEADBAND: Final = math.radians(8)
+ROI_SIZE_DEADBAND: Final = 0.1  # A fraction of the size
 # Wrist + finger bases: they barely move as the fingers bend, so the crop stays steady
 ROI_LANDMARKS: Final = [
     HandLandmark.WRIST,
@@ -90,6 +99,19 @@ def _roi_from_landmarks(landmarks: Points) -> Roi:
     return Roi.around(centre, float(width), float(height), angle, LANDMARK_ROI_SCALE, LANDMARK_ROI_SHIFT)
 
 
+def _steadied(previous: Roi, new: Roi) -> Roi:
+    """Keep the previous crop's angle and size unless the new one's differ by more than the deadbands.
+
+    Each crop is placed from the landmarks found in the last one, so the landmarks' jitter would feed back into the
+    crop and back again: worst with the hand pointing at the camera, where the wrist-to-knuckle direction that sets
+    the angle is short on screen and so noisy. The centre always follows the hand.
+    """
+    turn = math.remainder(new.angle - previous.angle, math.tau)
+    angle = previous.angle if abs(turn) < ROI_ANGLE_DEADBAND else new.angle
+    size = previous.size if abs(new.size / previous.size - 1) < ROI_SIZE_DEADBAND else new.size
+    return replace(new, angle=angle, size=size)
+
+
 @final
 class HandTracker:
     """Tracks one hand (left or right) across video frames."""
@@ -111,6 +133,9 @@ class HandTracker:
             predicted = replace(self._roi, centre=self._roi.centre + self._velocity * (timestamp - self._timestamp))
             # No handedness check while following: a wavering guess mid-track would just drop the hand
             found, presence = self._detect_landmarks(frame_bgr, predicted, check_hand=False)
+            if found is None:
+                wider = replace(predicted, size=predicted.size * REACQUIRE_SCALE)
+                found, presence = self._detect_landmarks(frame_bgr, wider, check_hand=False)
 
         if found is None:
             # Lost (or never had) the hand: search the whole frame
@@ -126,8 +151,10 @@ class HandTracker:
 
         landmarks, world_landmarks, hand = found
         roi = _roi_from_landmarks(landmarks)
-        if self._roi is not None and timestamp > self._timestamp:
-            self._velocity = (roi.centre - self._roi.centre) / (timestamp - self._timestamp)
+        if self._roi is not None:
+            roi = _steadied(self._roi, roi)
+            if timestamp > self._timestamp:
+                self._velocity = (roi.centre - self._roi.centre) / (timestamp - self._timestamp)
 
         self._roi, self._timestamp = roi, timestamp
         return TrackResult(landmarks, world_landmarks, hand, palm_score, presence)
@@ -175,6 +202,9 @@ class HandTracker:
             crop_to_frame,
             (LANDMARK_INPUT_SIZE, LANDMARK_INPUT_SIZE),
             flags=cv2.INTER_LINEAR | cv2.WARP_INVERSE_MAP,
+            # Where the crop runs off the frame (a hand at its edge), repeat the edge pixels rather than fill in black,
+            # as MediaPipe does: a hard black band reads as part of the hand and throws the landmarks about
+            borderMode=cv2.BORDER_REPLICATE,
         )
 
         landmarks_crop, presence, left_hand, world_landmarks = self._landmark_model.run(crop)

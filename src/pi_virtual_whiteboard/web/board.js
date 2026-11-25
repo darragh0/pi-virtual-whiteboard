@@ -61,28 +61,39 @@ export class Board {
 
   // Clear the board (undoable). Returns whether there was anything to clear
   clear() {
-    this.end();
-    const lastClear = this.#actions.findLastIndex((action) => action.tool === "clear");
-    if (lastClear === this.#actions.length - 1) return false;
-    this.#do({ tool: "clear" });
-    this.#redraw();
-    return true;
+    return this.#between(() => {
+      const lastClear = this.#actions.findLastIndex((action) => action.tool === "clear");
+      if (lastClear === this.#actions.length - 1) return false;
+      this.#do({ tool: "clear" });
+      return true;
+    });
   }
 
   undo() {
-    this.end();
-    if (this.#actions.length === 0) return false;
-    this.#undone.push(this.#actions.pop());
-    this.#redraw();
-    return true;
+    return this.#between(() => {
+      if (this.#actions.length === 0) return false;
+      this.#undone.push(this.#actions.pop());
+      return true;
+    });
   }
 
   redo() {
+    return this.#between(() => {
+      if (this.#undone.length === 0) return false;
+      this.#actions.push(this.#undone.pop());
+      return true;
+    });
+  }
+
+  // Finish the stroke being drawn, make a change (returning whether it changed anything), redraw, then carry on in a
+  // fresh stroke: the hand is still drawing, and a stroke begins only when the gesture changes
+  #between(change) {
+    const live = this.#live;
     this.end();
-    if (this.#undone.length === 0) return false;
-    this.#actions.push(this.#undone.pop());
+    const changed = change();
     this.#redraw();
-    return true;
+    if (live !== null) this.begin(live.tool, live.colour, live.width);
+    return changed;
   }
 
   #do(action) {

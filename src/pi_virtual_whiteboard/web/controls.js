@@ -1,7 +1,6 @@
 // Turns the hand's gesture each frame into actions on the board (see hands/gestures.py for the gestures)
 
 // Landmark numbers: reference/hand_landmarks.png
-const THUMB_TIP = 4;
 const INDEX_FINGER_TIP = 8;
 const PALM = [0, 5, 9, 13, 17]; // Wrist and finger knuckles: their average is the palm's centre
 
@@ -17,7 +16,7 @@ export const COLOURS = [
 ];
 
 const PEN_WIDTH = 0.012; // In board heights
-const ERASER_WIDTH = 0.09;
+const ERASER_WIDTH = 0.16;
 // A new gesture only takes over once held this long (GESTURE_HOLD_S in config.py), so a stroke's last this-many ms
 // were drawn while the hand was already changing shape: they're trimmed off, or the stroke ends in a stray flick
 const GESTURE_HOLD_MS = 120;
@@ -34,10 +33,19 @@ export class Controls {
   #gesture = "none";
   #lastInk = null; // The last point inked, to tell how far the hand moved during a dropout
   #lost = false; // Whether the hand dropped out since the last frame it was seen
+  #spaceHeld = false; // In space mode, the pen: down while Space is held
 
   constructor(board, hud) {
     this.#board = board;
     this.#hud = hud;
+  }
+
+  get gesture() {
+    return this.#gesture;
+  }
+
+  set spaceHeld(held) {
+    this.#spaceHeld = held;
   }
 
   get colour() {
@@ -50,8 +58,11 @@ export class Controls {
   }
 
   // Act on one frame's hand: {gesture, landmarks: 21 [x, y] in 0..1 of the board, or null during a dropout}
-  update({ gesture, landmarks }, now) {
-    if (gesture !== this.#gesture) this.#change(gesture, now);
+  update({ mode, gesture, landmarks }, now) {
+    // In space mode the hand only steers (or erases, with an open palm): Space is the pen
+    if (mode === "space" && gesture !== "erase") gesture = this.#spaceHeld ? "draw" : "none";
+    const byKey = mode === "space";
+    if (gesture !== this.#gesture) this.#change(gesture, now, byKey);
     this.#gesture = gesture;
 
     // During a dropout the gesture holds (so a stroke isn't cut), but there's nowhere to draw: a stroke picks up from
@@ -62,17 +73,16 @@ export class Controls {
       return;
     }
 
-    // The pen is where the fingertips meet, whether pinched or not, so it doesn't jump when the pinch closes
-    const pen = average([landmarks[THUMB_TIP], landmarks[INDEX_FINGER_TIP]]);
+    const pen = landmarks[INDEX_FINGER_TIP];
     switch (gesture) {
       case "draw":
         this.#ink(pen, now);
         this.#hud.drawCursor({ kind: "pen", at: pen, width: PEN_WIDTH, colour: this.#colour.value });
         break;
       case "erase": {
-        const palm = average(PALM.map((index) => landmarks[index]));
-        this.#board.extend(palm, now);
-        this.#hud.drawCursor({ kind: "eraser", at: palm, width: ERASER_WIDTH });
+        const eraser = average(PALM.map((index) => landmarks[index]));
+        this.#board.extend(eraser, now);
+        this.#hud.drawCursor({ kind: "eraser", at: eraser, width: ERASER_WIDTH });
         break;
       }
       default: // none: just move
@@ -81,10 +91,12 @@ export class Controls {
     this.#lost = false;
   }
 
-  // Leaving one gesture for another: finish what the old one was doing, start what the new one does
-  #change(to, now) {
-    // Losing the hand reads as "none" too, but then there are no in-between shapes to trim
-    this.#board.end(to === "none" && this.#lost ? Infinity : now - GESTURE_HOLD_MS);
+  // Leaving one gesture for another: finish what the old one was doing, start what the new one does. `byKey`: whether
+  // Space is the pen (space mode)
+  #change(to, now, byKey) {
+    // Letting go of Space is exact; losing the hand reads as "none" too, but has no in-between shapes to trim
+    const exact = (byKey && this.#gesture === "draw") || (to === "none" && this.#lost);
+    this.#board.end(exact ? Infinity : now - GESTURE_HOLD_MS);
     this.#lastInk = null;
 
     if (to === "draw") this.#board.begin("pen", this.#colour.value, PEN_WIDTH);
