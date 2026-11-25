@@ -9,26 +9,47 @@
     <script type="module" src="app.js"></script>
   </head>
   <body>
-    <main id="board" data-view="dim">
-      <img id="video" alt="Camera" />
-      <canvas id="ink"></canvas>
-      <canvas id="cursor"></canvas>
+    <div id="app">
+      <main id="board" data-view="dim">
+        <img id="video" alt="Camera" />
+        <canvas id="ink"></canvas>
+        <canvas id="cursor"></canvas>
 
-      <p id="toast" role="status"></p>
-    </main>
+        <p id="toast" role="status"></p>
+      </main>
 
-    <footer>
-      <ul id="gestures">
-        <li data-gesture="draw"><b>🤏</b> Pinch to draw</li>
-        <li data-gesture="erase"><b>🖐️</b> Open palm to erase</li>
-        <li data-gesture="none">Anything else moves</li>
-      </ul>
-      <div id="colours"></div>
-      <p id="keys">
-        <kbd>1</kbd>-<kbd>7</kbd> colour <kbd>Z</kbd> undo <kbd>Y</kbd> redo <kbd>C</kbd> clear <kbd>S</kbd> save <kbd>V</kbd> view
-        <button id="clear" type="button">Clear board</button>
-        <span id="stats">connecting...</span>
-      </p>
-    </footer>
+      <footer id="toolbar">
+        <section>
+          <h2>Gesture</h2>
+          <ul id="gestures">
+            <li data-gesture="draw" title="Pinch"><span>🤏</span> Draw</li>
+            <li data-gesture="erase" title="Open palm">
+              <span>🖐️</span> Erase
+            </li>
+            <li data-gesture="none" title="Any other hand shape">
+              <span>☝️</span> Move
+            </li>
+          </ul>
+        </section>
+
+        <section>
+          <h2>Colour</h2>
+          <div id="colours"></div>
+        </section>
+
+        <section>
+          <h2>Actions</h2>
+          <div id="actions">
+            <button type="button" data-key="z">Undo <kbd>Z</kbd></button>
+            <button type="button" data-key="y">Redo <kbd>Y</kbd></button>
+            <button type="button" data-key="s">Save <kbd>S</kbd></button>
+            <button type="button" data-key="v">View <kbd>V</kbd></button>
+            <button type="button" data-key="c">Clear <kbd>C</kbd></button>
+          </div>
+        </section>
+      </footer>
+
+      <p id="stats">connecting...</p>
+    </div>
   </body>
 </html>

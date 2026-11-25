@@ -22,7 +22,8 @@ const gestureChips = document.querySelectorAll("#gestures [data-gesture]");
 const swatches = COLOURS.map((colour, index) => {
   const swatch = document.createElement("button");
   swatch.type = "button";
-  swatch.title = `${colour.name} (${index + 1})`;
+  swatch.title = colour.name;
+  swatch.textContent = index + 1;
   swatch.style.background = colour.value;
   swatch.addEventListener("click", () => pickColour(index));
   element("colours").append(swatch);
@@ -31,15 +32,21 @@ const swatches = COLOURS.map((colour, index) => {
 
 function pickColour(index) {
   controls.colour = COLOURS[index];
-  swatches.forEach((swatch, other) => swatch.classList.toggle("active", other === index));
+  swatches.forEach((swatch, other) =>
+    swatch.classList.toggle("active", other === index),
+  );
 }
 pickColour(0);
 
 function onFrame(hand) {
-  boardElement.style.setProperty("--aspect", video.naturalWidth / video.naturalHeight);
+  boardElement.style.setProperty(
+    "--aspect",
+    video.naturalWidth / video.naturalHeight,
+  );
   controls.update(hand, performance.now());
 
-  for (const chip of gestureChips) chip.classList.toggle("active", chip.dataset.gesture === hand.gesture);
+  for (const chip of gestureChips)
+    chip.classList.toggle("active", chip.dataset.gesture === hand.gesture);
 }
 
 // The drawing as a PNG, on the board's background (the video isn't included)
@@ -65,7 +72,8 @@ function clear() {
 }
 
 function cycleView() {
-  const view = VIEWS[(VIEWS.indexOf(boardElement.dataset.view) + 1) % VIEWS.length];
+  const view =
+    VIEWS[(VIEWS.indexOf(boardElement.dataset.view) + 1) % VIEWS.length];
   boardElement.dataset.view = view;
   hud.toast(`View: ${view}`);
 }
@@ -88,6 +96,9 @@ document.addEventListener("keydown", (event) => {
   action();
 });
 
-element("clear").addEventListener("click", clear);
+// The toolbar's buttons do the same as their keys
+for (const button of document.querySelectorAll("#actions [data-key]")) {
+  button.addEventListener("click", KEYS[button.dataset.key]);
+}
 
 streamFrames(video, onFrame, (text) => (element("stats").textContent = text));
