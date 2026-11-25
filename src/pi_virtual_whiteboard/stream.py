@@ -1,4 +1,5 @@
 import threading
+from collections.abc import Mapping
 from contextlib import suppress
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -26,22 +27,26 @@ PAGE: Final = b"""<!doctype html>
   // fetch() rather than setting img.src to the URL, so the browser doesn't flash "Waiting for localhost..."
   const img = document.querySelector("img");
   const stats = document.querySelector("p");
-  let fps = 0, mbps = 0;  // Smoothed, so the numbers don't flicker
+  let fps = 0, mbps = 0, lag = 0;  // Smoothed, so the numbers don't flicker
   (async () => {
     for (;;) {
       try {
         const start = performance.now();
-        const frame = await (await fetch("/frame", { cache: "no-store" })).blob();
+        const response = await fetch("/frame", { cache: "no-store" });
+        const frame = await response.blob();
         const url = URL.createObjectURL(frame);
         img.src = url;
         await img.decode();
         URL.revokeObjectURL(url);
 
-        // Received rate: if well below the fps on the video, the network is what's holding it back
+        // Received rate: if well below the fps on the video, the network is what's holding it back.
+        // Lag: capture to on screen, minus camera exposure (assumes the Pi's and this device's clocks agree)
         const seconds = (performance.now() - start) / 1000;
         fps = 0.9 * fps + 0.1 / seconds;
         mbps = 0.9 * mbps + 0.1 * (frame.size * 8) / seconds / 1e6;
-        stats.textContent = `network: ${fps.toFixed(0)} fps received, ${mbps.toFixed(1)} Mbit/s`;
+        lag = 0.9 * lag + 0.1 * (Date.now() - 1000 * response.headers.get("X-Captured"));
+        stats.textContent =
+          `network: ${fps.toFixed(0)} fps received, ${mbps.toFixed(1)} Mbit/s, ${lag.toFixed(0)} ms lag`;
       } catch {
         stats.textContent = "reconnecting...";
         await new Promise((resolve) => setTimeout(resolve, 500));  // App restarting: retry
@@ -58,6 +63,7 @@ class FrameServer:
 
     def __init__(self, host: str, port: int) -> None:
         self._frame: MatLike | None = None
+        self._captured = 0.0  # Unix time the frame was captured
         self._closed = False
         self._new_frame = threading.Condition()
         self._server = ThreadingHTTPServer((host, port), self._handler_class())
@@ -65,11 +71,11 @@ class FrameServer:
 
         threading.Thread(target=self._server.serve_forever, daemon=True).start()
 
-    def _wait_for_frame(self) -> MatLike | None:
-        """Block until a new frame is published; None once closed."""
+    def _wait_for_frame(self) -> tuple[MatLike, float] | None:
+        """Block until a new frame is published and return it with its capture time; None once closed."""
         with self._new_frame:
             self._new_frame.wait()
-            return None if self._closed else self._frame
+            return None if self._closed or self._frame is None else (self._frame, self._captured)
 
     def _handler_class(self) -> type[BaseHTTPRequestHandler]:
         server = self
@@ -87,23 +93,27 @@ class FrameServer:
                         self.send_error(HTTPStatus.NOT_FOUND)
 
             def _send_frame(self) -> None:
-                if (frame := server._wait_for_frame()) is None:
+                if (latest := server._wait_for_frame()) is None:
                     self.send_error(HTTPStatus.SERVICE_UNAVAILABLE)
                     return
+
+                frame, captured = latest
 
                 # Encoded here, off the tracking thread, so it doesn't add to the tracking loop's time
                 ok, jpeg = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, JPEG_QUALITY])
                 if ok:
-                    self._send(jpeg.tobytes(), "image/jpeg")
+                    self._send(jpeg.tobytes(), "image/jpeg", {"X-Captured": f"{captured:.3f}"})
                 else:
                     self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR)
 
-            def _send(self, body: bytes, content_type: str) -> None:
+            def _send(self, body: bytes, content_type: str, headers: Mapping[str, str] | None = None) -> None:
                 with suppress(BrokenPipeError, ConnectionResetError):  # Viewer closed the tab
                     self.send_response(HTTPStatus.OK)
                     self.send_header("Content-Type", content_type)
                     self.send_header("Content-Length", str(len(body)))
                     self.send_header("Cache-Control", "no-store")
+                    for name, value in (headers or {}).items():
+                        self.send_header(name, value)
                     self.end_headers()
                     self.wfile.write(body)
 
@@ -113,10 +123,10 @@ class FrameServer:
 
         return Handler
 
-    def publish(self, frame: MatLike) -> None:
-        """Send a BGR frame to viewers. The caller must not modify it afterwards."""
+    def publish(self, frame: MatLike, captured: float) -> None:
+        """Send a BGR frame captured at Unix time `captured` to viewers. The caller must not modify it afterwards."""
         with self._new_frame:
-            self._frame = frame
+            self._frame, self._captured = frame, captured
             self._new_frame.notify_all()
 
     def close(self) -> None:

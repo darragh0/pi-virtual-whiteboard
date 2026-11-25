@@ -51,7 +51,7 @@ def main() -> None:
         last = time.perf_counter()
         while True:
             frame = camera.capture()
-            captured = time.perf_counter()
+            captured, captured_wall = time.perf_counter(), time.time()
 
             result = tracker.track(frame, captured)
             if result.landmarks is None:
@@ -65,4 +65,4 @@ def main() -> None:
             _draw_lines(frame, *lines)
             last = captured
 
-            stream.publish(frame)
+            stream.publish(frame, captured_wall)
