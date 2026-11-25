@@ -9,6 +9,10 @@ class StreamConfig(TypedDict, total=False):
     size: tuple[int, int]
     format: Literal["RGB888", "BGR888", "XRGB8888", "XBGR8888", "YUV420"]
 
+class SensorConfig(TypedDict, total=False):
+    output_size: tuple[int, int]
+    bit_depth: int
+
 type Tuning = dict[str, Any]  # pyright: ignore[reportExplicitAny] -- parsed JSON, arbitrarily nested
 
 class Picamera2:
@@ -20,6 +24,7 @@ class Picamera2:
     def create_video_configuration(
         self,
         main: StreamConfig = ...,
+        sensor: SensorConfig = ...,
         transform: Transform = ...,
         controls: Mapping[str, object] = ...,
     ) -> dict[str, object]: ...

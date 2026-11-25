@@ -1,2 +1,4 @@
+from libcamera import controls as controls
+
 class Transform:
     def __init__(self, hflip: int = 0, vflip: int = 0) -> None: ...
