@@ -21,8 +21,7 @@ ROOT: Final = Path(__file__).resolve().parent.parent
 PI_HOST: Final = os.environ.get("PI_HOST", "dar@rpi")
 PI_DIR: Final = os.environ.get("PI_DIR", "virtual-whiteboard")  # Relative to the Pi user's home
 
-EXCLUDES: Final = (".git/", ".venv/", "__pycache__/", ".ruff_cache/", "*.egg-info/")
-WATCH_EXCLUDE: Final = r"/(\.git|\.venv|__pycache__|\.ruff_cache)/"
+WATCH_INTERVAL_S: Final = 0.5
 LOG_NOISE: Final = "^INFO: Created TensorFlow Lite XNNPACK delegate"  # Harmless; no setting turns it off
 
 SETUP_SCRIPT: Final = """
@@ -76,17 +75,33 @@ def _stream_port() -> int:
 
 
 def sync() -> None:
-    excludes = [f"--exclude={pattern}" for pattern in EXCLUDES]
-    _sh("rsync", "-az", "--delete", *excludes, f"{ROOT}/", f"{PI_HOST}:{PI_DIR}/")
+    # Skips whatever .gitignore (at any level) ignores; excluded files on the Pi, e.g. its .venv, are kept
+    _sh("rsync", "-az", "--delete", "--filter=:- .gitignore", "--exclude=.git/", f"{ROOT}/", f"{PI_HOST}:{PI_DIR}/")
+
+
+def _project_files() -> dict[str, float]:
+    """Modification time of every file git doesn't ignore, tracked or not."""
+    listing = subprocess.run(
+        ["git", "ls-files", "--cached", "--others", "--exclude-standard", "-z"],  # noqa: S607 -- git from PATH
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    files = (ROOT / name for name in listing.split("\0") if name)
+    return {str(file): file.stat().st_mtime for file in files if file.exists()}
 
 
 def watch() -> None:
     sync()
     step(f"Watching for changes {_style('2', f'({ROOT} -> {PI_HOST}:{PI_DIR}, Ctrl+C to stop)')}")
+    files = _project_files()
     while True:
-        _sh("inotifywait", "-qq", "-r", "-e", "modify,create,delete,move", "--exclude", WATCH_EXCLUDE, str(ROOT))
-        sync()
-        ok(f"{_style('2', time.strftime('%H:%M:%S'))} synced")
+        time.sleep(WATCH_INTERVAL_S)
+        if (latest := _project_files()) != files:
+            files = latest
+            sync()
+            ok(f"{_style('2', time.strftime('%H:%M:%S'))} synced")
 
 
 def setup() -> None:
@@ -105,7 +120,7 @@ def run(app_args: Sequence[str]) -> None:
 
     app = shlex.join([".venv/bin/virtual-whiteboard", *app_args])
     remote = f"cd {PI_DIR} && LIBCAMERA_LOG_LEVELS=WARN {app} 2> >(grep --line-buffered -vE '{LOG_NOISE}' >&2)"
-    # The stream binds to the Pi's localhost only; SSH forwards it to this machine.
+    # The stream binds to the Pi's localhost only; SSH forwards it to this machine
     # LogLevel=ERROR hides "connect failed" noise from a still-open browser tab retrying after Ctrl+C
     _sh("ssh", "-t", "-o", "LogLevel=ERROR", "-L", f"{port}:127.0.0.1:{port}", PI_HOST, remote)
 
