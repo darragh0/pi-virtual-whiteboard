@@ -1,6 +1,8 @@
 import threading
 from typing import final
 
+from cv2.typing import MatLike
+
 
 @final
 class LatestFrame:
@@ -11,12 +13,12 @@ class LatestFrame:
     """
 
     def __init__(self) -> None:
-        self._frame: bytes | None = None
+        self._frame: MatLike | None = None
         self._version = 0
         self._closed = False
         self._condition = threading.Condition()
 
-    def publish(self, frame: bytes) -> None:
+    def publish(self, frame: MatLike) -> None:
         with self._condition:
             self._frame = frame
             self._version += 1
@@ -28,7 +30,7 @@ class LatestFrame:
             self._closed = True
             self._condition.notify_all()
 
-    def wait_newer(self, seen: int) -> tuple[int, bytes] | None:
+    def wait_newer(self, seen: int) -> tuple[int, MatLike] | None:
         """Block until a frame newer than version `seen` exists; None once closed."""
         with self._condition:
             _ = self._condition.wait_for(lambda: self._closed or self._version > seen)

@@ -40,7 +40,13 @@ class MjpegStream:
 
                 try:
                     while (latest := frames.wait_newer(seen)) is not None:
-                        seen, jpeg = latest
+                        seen, frame = latest
+                        # Encoded here, off the tracking thread, so it doesn't add to the tracking loop's time
+                        ok, encoded = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, JPEG_QUALITY])
+                        if not ok:
+                            continue
+
+                        jpeg = encoded.tobytes()
                         _ = self.wfile.write(
                             f"--{BOUNDARY}\r\nContent-Type: image/jpeg\r\nContent-Length: {len(jpeg)}\r\n\r\n".encode()
                         )
@@ -56,9 +62,8 @@ class MjpegStream:
         return Handler
 
     def publish(self, frame: MatLike) -> None:
-        ok, jpeg = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, JPEG_QUALITY])
-        if ok:
-            self._frames.publish(jpeg.tobytes())
+        """Send a BGR frame to viewers. The caller must not modify it afterwards."""
+        self._frames.publish(frame)
 
     def close(self) -> None:
         self._frames.close()
