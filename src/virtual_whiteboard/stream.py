@@ -11,6 +11,16 @@ from virtual_whiteboard.latest_frame import LatestFrame
 BOUNDARY: Final = "frame"
 JPEG_QUALITY: Final = 80
 
+# Shows the stream scaled to fill the browser window (the browser does the scaling, not the Pi)
+PAGE: Final = b"""<!doctype html>
+<title>Virtual Whiteboard</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #000; }
+  img { width: 100%; height: 100%; object-fit: contain; }
+</style>
+<img src="/stream" alt="Camera stream">
+"""
+
 
 @final
 class MjpegStream:
@@ -28,10 +38,22 @@ class MjpegStream:
 
         class Handler(BaseHTTPRequestHandler):
             def do_GET(self) -> None:
-                if self.path != "/":
-                    self.send_error(HTTPStatus.NOT_FOUND)
-                    return
+                match self.path:
+                    case "/":
+                        self._send_page()
+                    case "/stream":
+                        self._send_stream()
+                    case _:
+                        self.send_error(HTTPStatus.NOT_FOUND)
 
+            def _send_page(self) -> None:
+                self.send_response(HTTPStatus.OK)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.send_header("Content-Length", str(len(PAGE)))
+                self.end_headers()
+                _ = self.wfile.write(PAGE)
+
+            def _send_stream(self) -> None:
                 self.send_response(HTTPStatus.OK)
                 self.send_header("Content-Type", f"multipart/x-mixed-replace; boundary={BOUNDARY}")
                 self.send_header("Cache-Control", "no-store")
