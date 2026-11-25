@@ -43,7 +43,7 @@ flowchart LR
     cam[Camera<br>640×480] --> tracked{Hand tracked<br>last frame?}
     tracked -- no --> palm[Palm detector] --> crop
     tracked -- yes --> crop[Crop around<br>the hand]
-    crop --> lm[Landmark model<br>21 points] --> smooth[One Euro<br>smoothing] --> stream[MJPEG<br>stream]
+    crop --> lm[Landmark model<br>21 points] --> smooth[One Euro<br>smoothing] --> stream[Browser<br>view]
     lm -. next crop .-> crop
 ```
 

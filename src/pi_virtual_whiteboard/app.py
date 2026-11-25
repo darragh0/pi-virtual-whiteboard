@@ -9,7 +9,7 @@ from pi_virtual_whiteboard.camera import PREFERENCES, PiCamera, Preference
 from pi_virtual_whiteboard.config import STREAM_HOST, STREAM_PORT
 from pi_virtual_whiteboard.hands import HandTracker, draw_hand
 from pi_virtual_whiteboard.smoothing import LandmarkSmoother
-from pi_virtual_whiteboard.stream import MjpegStream
+from pi_virtual_whiteboard.stream import FrameServer
 
 
 class Args(argparse.Namespace):
@@ -44,7 +44,7 @@ def main() -> None:
     smoother = LandmarkSmoother()
 
     with (
-        closing(MjpegStream(STREAM_HOST, STREAM_PORT)) as stream,
+        closing(FrameServer(STREAM_HOST, STREAM_PORT)) as stream,
         closing(PiCamera(args.prefer)) as camera,
         suppress(KeyboardInterrupt),
     ):

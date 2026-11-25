@@ -8,7 +8,7 @@ from typing import Final
 # Stream: localhost only, as scripts/pi.py forwards the port to the laptop over SSH
 STREAM_HOST: Final = "127.0.0.1"
 STREAM_PORT: Final = 8000
-JPEG_QUALITY: Final = 90
+JPEG_QUALITY: Final = 75  # ~Half the data of 90 for nearly the same look: more fps on slow Wi-Fi
 
 # Camera
 FRAME_SIZE: Final = (640, 480)
