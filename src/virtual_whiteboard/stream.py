@@ -9,14 +9,15 @@ from cv2.typing import MatLike
 from virtual_whiteboard.latest_frame import LatestFrame
 
 BOUNDARY: Final = "frame"
-JPEG_QUALITY: Final = 80
+JPEG_QUALITY: Final = 90
 
-# Shows the stream scaled to fill the browser window (the browser does the scaling, not the Pi)
+# Shows the stream scaled up to most of the browser window (the browser does the scaling, not the Pi)
 PAGE: Final = b"""<!doctype html>
 <title>Virtual Whiteboard</title>
 <style>
-  html, body { margin: 0; height: 100%; background: #000; }
-  img { width: 100%; height: 100%; object-fit: contain; }
+  html, body { margin: 0; height: 100%; background: #111; }
+  body { display: flex; align-items: center; justify-content: center; }
+  img { height: 75vh; max-width: 95vw; object-fit: contain; }
 </style>
 <img src="/stream" alt="Camera stream">
 """
