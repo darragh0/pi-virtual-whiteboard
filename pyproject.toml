@@ -1,0 +1,25 @@
+[project]
+name = "virtual-whiteboard"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+  { name = "darragh0", email = "156817523+darragh0@users.noreply.github.com" },
+]
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "mediapipe==0.10.18",
+    "numpy>=1.26.4",
+    "opencv-contrib-python>=4.11.0.86",
+]
+
+[project.scripts]
+virtual-whiteboard = "virtual_whiteboard:main"
+
+[build-system]
+requires = ["uv_build>=0.13.9,<0.14.0"]
+build-backend = "uv_build"
+
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
