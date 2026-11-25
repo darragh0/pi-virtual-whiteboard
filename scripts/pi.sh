@@ -13,6 +13,8 @@ PORT=8000 # Must match STREAM_PORT in src/virtual_whiteboard/__init__.py
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 EXCLUDES=(.git/ .venv/ __pycache__/ .ruff_cache/ '*.egg-info/')
+# Harmless LiteRT start-up line that no setting turns off
+LOG_NOISE='^INFO: Created TensorFlow Lite XNNPACK delegate'
 WATCH_EXCLUDE='/(\.git|\.venv|__pycache__|\.ruff_cache)/'
 
 sync() {
@@ -35,6 +37,9 @@ set -euo pipefail
 cd "$1"
 export PATH="$HOME/.local/bin:$PATH"
 command -v uv >/dev/null || curl -LsSf https://astral.sh/uv/install.sh | sh
+# System site-packages exposes the apt-installed picamera2/libcamera to the venv
+grep -qs "include-system-site-packages = true" .venv/pyvenv.cfg ||
+    uv venv --quiet --clear --python /usr/bin/python3 --system-site-packages
 uv sync --locked --quiet
 EOF
 }
@@ -44,7 +49,7 @@ run() {
     echo "View at http://localhost:$PORT/ (Ctrl+C to stop)"
     # The stream binds to the Pi's localhost only; SSH forwards it to this machine
     ssh -t -L "$PORT:127.0.0.1:$PORT" "$PI_HOST" \
-        "cd $PI_DIR && .venv/bin/virtual-whiteboard"
+        "cd $PI_DIR && LIBCAMERA_LOG_LEVELS=WARN .venv/bin/virtual-whiteboard 2> >(grep --line-buffered -vE '$LOG_NOISE' >&2)"
 }
 
 case "${1:-}" in

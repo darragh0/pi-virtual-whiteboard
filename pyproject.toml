@@ -6,11 +6,11 @@ readme = "README.md"
 authors = [
   { name = "darragh0", email = "156817523+darragh0@users.noreply.github.com" },
 ]
-requires-python = ">=3.12,<3.13"
+requires-python = ">=3.13,<3.14"
 dependencies = [
-    "mediapipe==0.10.18",
-    "numpy>=1.26.4",
-    "opencv-contrib-python>=4.11.0.86",
+    "ai-edge-litert>=2.4.0",
+    "numpy>=2.5.5",
+    "opencv-python-headless>=5.1.0.95",
 ]
 
 [project.scripts]
@@ -24,3 +24,7 @@ build-backend = "uv_build"
 venvPath = "."
 venv = ".venv"
 ignore = ["reference"]
+# numpy's stubs type element access and unpacking as Any, which would flag most array code
+reportAny = false
+# picamera2/libcamera are typed by local stubs but only installed on the Pi
+reportMissingModuleSource = false
